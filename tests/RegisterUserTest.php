@@ -176,10 +176,14 @@ final class RegisterUserTest extends TestCase
     public function testFakeAdapterDoesNotClaimRealDelivery(): void
     {
         $this->register->execute('Ana Pérez', 'ana@example.com', 'secret123');
-        $description = (string) $this->emails->lastRequestDescription();
+        $email = $this->emails->lastEmail();
 
-        $this->assertStringContainsString('envío simulado', $description);
-        $this->assertStringContainsString('no implica entrega', $description);
+        $this->assertNotNull($email);
+        $this->assertSame('ana@example.com', $email['to']);
+        $this->assertSame('¡Bienvenido a nuestra plataforma!', $email['subject']);
+        $this->assertStringContainsString('Hola, Ana Pérez:', $email['body']);
+        $this->assertStringContainsString('Tu registro se ha completado correctamente.', $email['body']);
+        $this->assertStringContainsString('no se ha enviado por correo electrónico', $email['disclaimer']);
     }
 
     public function testPreservesAccentsAndPasswordsWithSymbols(): void

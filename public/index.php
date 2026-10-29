@@ -28,6 +28,7 @@ $register = new RegisterUser($users, $emails);
 
 $error = null;
 $success = null;
+$welcomeEmail = null;
 $name = '';
 $email = '';
 
@@ -38,15 +39,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     try {
         $user = $register->execute($name, $email, $password);
-        $welcome = $emails->lastRequestDescription()
-            ?? 'Usuario guardado. El envío de bienvenida no se completó; se puede reintentar.';
-
         $_SESSION['flash_success'] = [
             'id' => $user->id(),
             'name' => $user->name(),
             'email' => $user->email(),
-            'welcome' => $welcome,
         ];
+        $_SESSION['flash_welcome_email'] = $emails->lastEmail();
         header('Location: ' . strtok((string) $_SERVER['REQUEST_URI'], '?'));
         exit;
     } catch (InvalidUserData | EmailAlreadyRegistered | UserPersistenceFailed $e) {
@@ -59,9 +57,14 @@ if (isset($_SESSION['flash_success']) && is_array($_SESSION['flash_success'])) {
     unset($_SESSION['flash_success']);
 }
 
+if (isset($_SESSION['flash_welcome_email']) && is_array($_SESSION['flash_welcome_email'])) {
+    $welcomeEmail = $_SESSION['flash_welcome_email'];
+    unset($_SESSION['flash_welcome_email']);
+}
+
 function e(string $value): string
 {
     return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
-require __DIR__ . '/views/register.html';
+require __DIR__ . '/views/home.php';

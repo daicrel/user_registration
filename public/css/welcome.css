@@ -1,0 +1,50 @@
+.email {
+    margin: 0;
+    padding: 18px 18px 14px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 10px 30px rgba(17, 24, 39, 0.06);
+}
+
+.email h2 {
+    margin: 0 0 12px;
+    font-size: 1rem;
+}
+
+.email-meta {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+.email-icon {
+    margin-right: 6px;
+}
+
+.email-subject {
+    margin: 4px 0 0 1.4em;
+}
+
+.email-body {
+    margin: 16px 0 0;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    color: var(--text);
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.email-body p {
+    margin: 0 0 12px;
+}
+
+.email-body p:last-child {
+    margin-bottom: 0;
+}
+
+.email-note {
+    margin: 16px 0 0;
+    color: var(--muted);
+    font-size: 0.8rem;
+}

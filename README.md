@@ -31,7 +31,9 @@ Si `vendor/` ya existe y solo cambió el autoload:
 composer dump-autoload
 ```
 
-No hace falta archivo `.env` ni servidor SMTP. La demo usa SQLite en memoria y un adapter de correo falso.
+No hace falta archivo `.env` ni servidor SMTP. **No se envían correos reales**: no hay SMTP, ni credenciales de correo, ni entrega a una bandeja. `FakeWelcomeEmailSender` implementa `WelcomeEmailSender` y solo simula destinatario, asunto y cuerpo (en pantalla o en la demo CLI).
+
+La demo usa SQLite en memoria o, en la vista web, `data/users.sqlite`.
 
 ## Configuración
 
@@ -102,4 +104,4 @@ En Windows también vale `php vendor/bin/phpunit`. Debe terminar con código de 
 2. **UUID v4.** Se genera con `random_bytes`, versión 4 y variante RFC 4122. No se usa `uniqid()`. El id se guarda en `CHAR(36)`.
 3. **Guardar y después solicitar el correo.** Si `save` falla, no se llama a `send`. Si `send` falla, el usuario **sigue guardado** y el caso de uso no finge que el registro no existió; el correo se puede reintentar.
 4. **El caso de uso depende de interfaces.** `RegisterUser` recibe `UserRepository` y `WelcomeEmailSender` por constructor. No instancia `PdoUserRepository` ni `FakeWelcomeEmailSender`.
-5. **El adapter falso no entrega correo.** Solo registra que se *solicitó un envío simulado*. No hay SMTP y no implica que el mensaje haya llegado a una bandeja.
+5. **El adapter falso no entrega correo.** `WelcomeEmailSender` es el puerto; `FakeWelcomeEmailSender` muestra para, asunto y cuerpo. No hay SMTP. El registro del usuario y la simulación del correo están separados: primero se persiste, después se pide el envío simulado.

@@ -37,7 +37,9 @@ function registrar(RegisterUser $register, FakeWelcomeEmailSender $emails, strin
         echo "  name:  {$user->name()}\n";
         echo "  email: {$user->email()}\n";
         $welcome = $emails->lastRequestDescription();
-        echo '  ' . ($welcome ?? 'Usuario guardado. El envío de bienvenida no se completó; se puede reintentar.') . "\n";
+        echo $welcome === null
+            ? "  Usuario guardado. El envío de bienvenida no se completó; se puede reintentar.\n"
+            : "\nCorreo de bienvenida (simulado)\n{$welcome}\n";
     } catch (InvalidUserData | EmailAlreadyRegistered | UserPersistenceFailed $e) {
         echo $e->getMessage() . "\n";
     }

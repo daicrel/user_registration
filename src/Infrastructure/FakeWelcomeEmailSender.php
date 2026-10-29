@@ -9,23 +9,51 @@ use App\Domain\User;
 
 final class FakeWelcomeEmailSender implements WelcomeEmailSender
 {
-    /** @var list<array{to: string, name: string}> */
+    public const SUBJECT = '¡Bienvenido a nuestra plataforma!';
+    public const DISCLAIMER = 'Simulación local: este mensaje no se ha enviado por correo electrónico.';
+
+    /** @var list<array{to: string, name: string, subject: string, body: string, disclaimer: string}> */
     private array $requested = [];
 
     public function send(User $user): void
     {
+        $name = $user->name();
+        $to = $user->email();
+
+        $body = implode("\n\n", [
+            "Hola, {$name}:",
+            '¡Te damos la bienvenida a nuestra plataforma! Tu registro se ha completado correctamente.',
+            'Gracias por unirte a nosotros.',
+            'El equipo',
+        ]);
+
         $this->requested[] = [
-            'to' => $user->email(),
-            'name' => $user->name(),
+            'to' => $to,
+            'name' => $name,
+            'subject' => self::SUBJECT,
+            'body' => $body,
+            'disclaimer' => self::DISCLAIMER,
         ];
     }
 
     /**
-     * @return list<array{to: string, name: string}>
+     * @return list<array{to: string, name: string, subject: string, body: string, disclaimer: string}>
      */
     public function requested(): array
     {
         return $this->requested;
+    }
+
+    /**
+     * @return array{to: string, name: string, subject: string, body: string, disclaimer: string}|null
+     */
+    public function lastEmail(): ?array
+    {
+        if ($this->requested === []) {
+            return null;
+        }
+
+        return $this->requested[array_key_last($this->requested)];
     }
 
     public function wasRequestedFor(string $email): bool
@@ -41,16 +69,17 @@ final class FakeWelcomeEmailSender implements WelcomeEmailSender
 
     public function lastRequestDescription(): ?string
     {
-        if ($this->requested === []) {
+        $email = $this->lastEmail();
+        if ($email === null) {
             return null;
         }
 
-        $last = $this->requested[array_key_last($this->requested)];
-
         return sprintf(
-            'Se solicitó un envío simulado de bienvenida para %s <%s>. No se usó SMTP y no implica entrega en una bandeja.',
-            $last['name'],
-            $last['to']
+            "Para: %s\nAsunto: %s\n\n%s\n\n%s",
+            $email['to'],
+            $email['subject'],
+            $email['body'],
+            $email['disclaimer']
         );
     }
 }
