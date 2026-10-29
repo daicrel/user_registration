@@ -1,43 +1,249 @@
 # Registro de usuarios
 
-Módulo de registro en PHP, organizado para que el dominio no dependa de persistencia ni de correo.
+Aplicación de registro de usuarios en PHP 8.1 o superior. El alta pide nombre completo, email y contraseña. El dominio valida los datos, el email es único sin distinguir mayúsculas de minúsculas, la contraseña se guarda con `password_hash()` y cada usuario obtiene un UUID versión 4.
 
-## Requisitos
+La persistencia es SQLite mediante PDO. El correo de bienvenida no se envía: `FakeWelcomeEmailSender` simula destinatario, asunto y cuerpo. No hay SMTP ni servicios externos.
+
+El diseño demuestra modularidad, separación de responsabilidades e inversión de dependencias: los casos de uso dependen de puertos (`Contracts`), no de PDO ni del adaptador de correo.
+
+## Características principales
+
+- Registrar usuarios (nombre, email y contraseña).
+- Rechazar email inválido, nombre vacío y contraseña de menos de 8 caracteres (`mb_strlen`).
+- Impedir emails duplicados, también si solo cambia el uso de mayúsculas.
+- Listar usuarios (id, nombre y email; nunca contraseña ni hash).
+- Simular el correo de bienvenida tras un alta.
+- Volver a solicitar esa simulación para un usuario existente.
+- Eliminar usuarios; el email queda libre.
+- Coordinar HTTP en `WebApp` (POST `register`, `resend` y `delete`, con redirección PRG).
+- Proteger los POST con token CSRF (`CsrfToken`, `hash_equals`).
+- Escapar la salida HTML con `htmlspecialchars` (`e()`).
+
+## Tecnologías utilizadas
+
+| Pieza | Uso |
+| --- | --- |
+| PHP 8.1+ | `composer.json` exige `php: >=8.1`. |
+| Composer | Autoload PSR-4: `App\` → `src/`, `Tests\` → `tests/`. |
+| PDO SQLite | Extensiones `pdo` y `pdo_sqlite`. |
+| `mbstring` | Longitud de contraseña en caracteres. |
+| PHPUnit 10.5.62 | Dependencia de desarrollo; `phpunit.xml.dist`. |
+| Servidor embebido de PHP | Document root `public/`. |
+
+## Requisitos previos
 
 - PHP 8.1 o superior
-- Extensiones `pdo`, `pdo_sqlite` y `mbstring`
 - [Composer](https://getcomposer.org/)
-
-Comprueba PHP:
+- Extensiones `pdo`, `pdo_sqlite` y `mbstring`
 
 ```bash
 php -v
 php -m
 ```
 
-En la lista de módulos deben aparecer `pdo` y `pdo_sqlite`.
+En `php -m` deben aparecer `pdo` y `pdo_sqlite`.
 
-## Instalación desde cero
-
-En la carpeta del proyecto:
+## Instalación
 
 ```bash
 composer install
 ```
 
-Si `vendor/` ya existe y solo cambió el autoload:
+Instala dependencias (PHPUnit en desarrollo) y genera `vendor/autoload.php`.
 
 ```bash
 composer dump-autoload
 ```
 
-No hace falta archivo `.env` ni servidor SMTP. **No se envían correos reales**: no hay SMTP, ni credenciales de correo, ni entrega a una bandeja. `FakeWelcomeEmailSender` implementa `WelcomeEmailSender` y solo simula destinatario, asunto y cuerpo (en pantalla o en la demo CLI).
+Solo hace falta si `vendor/` ya existe y cambió el PSR-4 o se añadieron clases. No se usa `.env` ni credenciales de correo.
 
-La demo usa SQLite en memoria o, en la vista web, `data/users.sqlite`.
+## Ejecución de la aplicación web
 
-## Configuración
+```bash
+php -S 127.0.0.1:8080 -t public
+```
 
-El caso de uso no instancia PDO ni el adapter falso. Recibe las dependencias por constructor:
+Abre [http://127.0.0.1:8080](http://127.0.0.1:8080).
+
+`-t public` deja `public/` como raíz HTTP. Sin ese flag, el `index.php` de la carpeta del proyecto reenvía a `public/index.php`, pero las URLs `/css/`, `/js/` e `/img/` no coinciden con esos archivos. El modo previsto es `-t public`.
+
+SQLite de la web: `data/users.sqlite`. `WebAppFactory` crea el directorio `data/` si no existe.
+
+| Pieza | Papel |
+| --- | --- |
+| `public/index.php` | Autoload, `WebAppFactory::create()` y `WebApp::run()`. |
+| `WebAppFactory` | PDO, esquema SQLite, adaptadores, casos de uso, CSRF, flash y vistas. |
+| `WebApp` | Petición, sesión, CSRF, casos de uso, PRG y datos de plantilla. No crea PDO. |
+| `public/views/` | `home.php` incluye `register.php`, `users.php` y `welcome.php`. CSRF en `_csrf.php`. |
+| `public/css/` | Layout, formulario, correo simulado y listado. |
+| `public/js/register.js` | Scroll al correo simulado, foco en errores y botón «Registrando…» al enviar el alta. |
+
+Tras un POST correcto de alta o reenvío, `WebApp` copia `lastEmail()` a la sesión y redirige. La GET siguiente lee ese flash; no consulta de nuevo el adaptador de correo.
+
+## Demo por consola
+
+`demo.php` usa SQLite en memoria (`sqlite::memory:`), no `data/users.sqlite`. Solo ejecuta `RegisterUser` (más `PdoUserRepository`, `FakeWelcomeEmailSender` y `PhpUuidGenerator`).
+
+Interactivo (nombre vacío + Enter para salir). Comprueba email y unicidad antes de pedir la contraseña:
+
+```bash
+php demo.php
+```
+
+Una sola llamada. Argumentos: nombre, email, contraseña (`$argv[1]`, `$argv[2]`, `$argv[3]`):
+
+```bash
+php demo.php "Ana Pérez" "ana@example.com" "secret123"
+```
+
+Escribe id, nombre, email y el texto simulado (`lastRequestDescription()`). No imprime contraseña ni hash. Como no hay redirección, el fake sigue siendo la misma instancia.
+
+## Pruebas automatizadas
+
+```bash
+php vendor/bin/phpunit
+```
+
+`phpunit.xml.dist` arranca `vendor/autoload.php` y ejecuta `tests/`.
+
+Ejecución de esta auditoría: PHPUnit 10.5.62, **35 tests, 132 assertions**, código de salida 0.
+
+| Qué | Dónde |
+| --- | --- |
+| Alta, hash, UUID, email normalizado, correo simulado | `RegisterUserTest` |
+| Duplicado (mismo email y distinto casing) | `RegisterUserTest` |
+| `UNIQUE` SQLite sin pasar por `findByEmail`; índice `users_email_unique` | `RegisterUserTest` |
+| `save` antes de `send`; usuario conservado si `send` lanza | `RegisterUserTest` |
+| Reenvío a id existente; rechazo si no existe | `RegisterUserTest`, `WebAppTest` |
+| Borrado y liberación del email | `RegisterUserTest`, `WebAppTest` |
+| Listado sin hash | `RegisterUserTest` |
+| POST de registro sin CSRF no crea usuario | `WebAppTest` |
+| Escape HTML en el listado | `WebAppTest` |
+| El caso de uso no nombra PDO ni `FakeWelcomeEmailSender` | `RegisterUserTest` (inspección de fuente) |
+
+No hay una prueba HTTP que reconstruya `WebAppFactory` entre POST y GET. El reenvío y el borrado comparten el mismo `CsrfToken::isValid` que el alta; no hay tests HTTP aparte para esos dos POST sin token.
+
+## Estructura del proyecto
+
+```text
+user_registration/
+├── public/
+│   ├── index.php
+│   ├── views/
+│   │   ├── home.php
+│   │   ├── register.php
+│   │   ├── users.php
+│   │   ├── welcome.php
+│   │   └── _csrf.php
+│   ├── css/
+│   │   ├── home.css
+│   │   ├── register.css
+│   │   ├── users.css
+│   │   └── welcome.css
+│   ├── js/
+│   │   └── register.js
+│   └── img/
+│       └── logo.svg
+├── src/
+│   ├── Application/
+│   │   ├── RegisterUser.php
+│   │   ├── ListUsers.php
+│   │   ├── ResendWelcomeEmail.php
+│   │   └── DeleteUser.php
+│   ├── Contracts/
+│   │   ├── UserRepository.php
+│   │   ├── WelcomeEmailSender.php
+│   │   ├── WelcomeEmailPreview.php
+│   │   └── UuidGenerator.php
+│   ├── Domain/
+│   │   ├── User.php
+│   │   ├── Email.php
+│   │   ├── EmailAlreadyRegistered.php
+│   │   ├── InvalidUserData.php
+│   │   ├── UserNotFound.php
+│   │   └── UserPersistenceFailed.php
+│   ├── Http/
+│   │   ├── WebApp.php
+│   │   ├── View.php
+│   │   ├── CsrfToken.php
+│   │   ├── SessionFlash.php
+│   │   └── html.php
+│   ├── Infrastructure/
+│   │   ├── WebAppFactory.php
+│   │   ├── PdoUserRepository.php
+│   │   ├── InMemoryUserRepository.php
+│   │   ├── FakeWelcomeEmailSender.php
+│   │   └── PhpUuidGenerator.php
+│   └── Support/
+│       └── Uuid.php
+├── tests/
+│   ├── RegisterUserTest.php
+│   └── WebAppTest.php
+├── data/
+├── vendor/
+├── demo.php
+├── index.php
+├── composer.json
+├── composer.lock
+├── phpunit.xml.dist
+├── .gitignore
+└── README.md
+```
+
+`/data/*.sqlite` y `vendor/` están en `.gitignore`. `data/` se crea al arrancar la web.
+
+## Arquitectura y responsabilidades
+
+Sin contenedor de inyección ni bus de eventos. Las reglas de negocio no están en las vistas ni en `index.php`.
+
+### Domain
+
+| Tipo | Papel |
+| --- | --- |
+| `User` | `register()` (valida UUID, nombre, contraseña ≥ 8, hace `password_hash`) y `fromPersistence()`. |
+| `Email` | `trim`, minúsculas y `filter_var`. |
+| `EmailAlreadyRegistered` | Email ya existente. |
+| `InvalidUserData` | Datos de entrada no válidos. |
+| `UserNotFound` | Id inexistente en reenvío o borrado. |
+| `UserPersistenceFailed` | Mensaje fijo «No se pudo completar el registro.»; la excepción PDO original va en `getPrevious()`. |
+
+### Application
+
+Método público en todos: `execute(...)`.
+
+| Caso de uso | Qué hace |
+| --- | --- |
+| `RegisterUser` | `UuidGenerator::v4()`, `User::register`, `findByEmail`, `save`, luego `WelcomeEmailSender::send`. Si `send` lanza, el usuario ya está guardado. |
+| `ListUsers` | Arrays con `id`, `name` y `email`. |
+| `ResendWelcomeEmail` | `findById` y `send`. No usa `WelcomeEmailPreview`. |
+| `DeleteUser` | `findById` y `deleteById`. |
+
+La web usa los cuatro. La demo solo `RegisterUser`.
+
+### HTTP
+
+Coordina transporte. No valida email, no hashea, no habla SQL.
+
+| Tipo | Papel |
+| --- | --- |
+| `WebApp` | GET/POST, CSRF, casos de uso, flash, redirección o `View`. |
+| `View` | `extract` + `require` de `public/views/`. |
+| `CsrfToken` | Token en `$_SESSION['_csrf_token']`; `hash_equals`. |
+| `SessionFlash` | `set` / `pull` (un solo uso). Claves: `success`, `welcome_email`, `notice`. |
+| `e()` (`html.php`) | `htmlspecialchars` con `ENT_QUOTES`, `ENT_SUBSTITUTE` y UTF-8. Función global, sin namespace. |
+
+## Puertos e inversión de dependencias
+
+Los casos de uso reciben interfaces por constructor.
+
+| Puerto | Firma | Consumidores |
+| --- | --- | --- |
+| `UserRepository` | `save`, `findByEmail`, `findById`, `all`, `deleteById` | Los cuatro casos de uso |
+| `WelcomeEmailSender` | `send(User $user): void` | `RegisterUser`, `ResendWelcomeEmail` |
+| `WelcomeEmailPreview` | `lastEmail(): ?array` | `WebApp` (no los casos de uso) |
+| `UuidGenerator` | `v4(): string` | `RegisterUser` |
+
+`send` pide el envío (aquí, simulado y acumulado en memoria). `lastEmail` solo lee el último elemento de esa lista. No son el mismo puerto.
 
 ```php
 $register = new RegisterUser(
@@ -47,64 +253,60 @@ $register = new RegisterUser(
 );
 ```
 
-Los adapters se sustituyen en el cableado (`WebAppFactory`), no en el caso de uso. Estos dos montajes ya existen en el proyecto:
+Otro correo (SMTP u otro) implementaría `WelcomeEmailSender` y se inyectaría en la fábrica. `RegisterUser` no cambia.
 
-```php
-new RegisterUser(new InMemoryUserRepository(), new FakeWelcomeEmailSender(), new PhpUuidGenerator());
-new RegisterUser(new PdoUserRepository($pdo), new FakeWelcomeEmailSender(), new PhpUuidGenerator());
-```
+## Adaptadores e infraestructura
 
-Para SMTP, añadirías otra clase que implemente `WelcomeEmailSender` y la pasarías en el constructor. `RegisterUser` no cambia.
+| Clase | Implementa | Comportamiento |
+| --- | --- | --- |
+| `PdoUserRepository` | `UserRepository` | Prepares, `ATTR_EMULATE_PREPARES` en false. Tabla `users`: `id CHAR(36)` PK, `email TEXT NOT NULL COLLATE NOCASE UNIQUE`, `password_hash`. Índice `users_email_unique`. `SQLSTATE 23000` de email → `EmailAlreadyRegistered`. |
+| `InMemoryUserRepository` | `UserRepository` | Array cuya clave es el email normalizado. Lo usan los tests de `WebApp`. |
+| `FakeWelcomeEmailSender` | `WelcomeEmailSender` y `WelcomeEmailPreview` | Array privado `$requested`. Sin SMTP, sin archivo, sin tabla. |
+| `PhpUuidGenerator` | `UuidGenerator` | `App\Support\Uuid::v4()` (`random_bytes`). |
+| `WebAppFactory` | — | Cableado de la web. También hay `new PDO` en `demo.php` y en tests. |
 
-## Vista web
+### Correo simulado y PRG
 
-En la carpeta del proyecto:
+Cada petición HTTP llama a `WebAppFactory::create()`, que hace `new FakeWelcomeEmailSender()`. El adaptador **no** conserva correos entre peticiones.
 
-```bash
-php -S 127.0.0.1:8080 -t public
-```
+Flujo real de un alta o un reenvío correctos:
 
-Abre [http://127.0.0.1:8080](http://127.0.0.1:8080). El `-t public` es obligatorio: si omites eso, PHP busca `index.php` en la raíz del proyecto y puede responder `Not Found`. `public/index.php` solo arranca la aplicación. El formulario está en `public/views/`. Los usuarios se guardan en `data/users.sqlite`, fuera de `public`.
+1. POST: `send()` llena `$requested` en esa instancia.
+2. `WebApp` copia `lastEmail()` a `$_SESSION['welcome_email']` (y `success` o `notice`).
+3. Redirección.
+4. GET: nueva fábrica, fake vacío. La plantilla `welcome.php` se pinta con el flash, no con el adaptador.
+5. `pull()` borra el flash: un refresco posterior ya no muestra el correo.
 
-## Cómo ejecutar
+En CLI no hay PRG: `demo.php` lee el fake en el mismo proceso.
 
-Demo interactiva (nombre vacío + Enter para salir):
+## Decisiones técnicas
 
-```bash
-php demo.php
-```
+1. **Email único.** Normalización en PHP y `UNIQUE` + `COLLATE NOCASE` (columna e índice). El `INSERT` es la garantía si dos peticiones pasan el `findByEmail`.
+2. **Contraseñas.** `password_hash(..., PASSWORD_DEFAULT)`. Nunca texto plano.
+3. **UUID v4.** `random_bytes(16)` en `Uuid::v4()`, inyectado con `UuidGenerator`.
+4. **SQLite.** Web: `data/users.sqlite`. Demo y la mayoría de `RegisterUserTest`: memoria.
+5. **Correo.** Fake local. Tras PRG, la UI usa sesión, no el adaptador.
+6. **Orden.** `save` y después `send`.
+7. **Capas.** Dominio, aplicación, contratos, infraestructura, HTTP.
+8. **DIP.** Los `new` concretos están en la fábrica, en `demo.php` o en los tests.
 
-Registro en una sola línea:
+## Seguridad
 
-```bash
-php demo.php "Ana Pérez" "ana@example.com" "secret123"
-```
+Mecanismos presentes; no es un endurecimiento de producción (SQLite local, servidor embebido, sesión PHP por defecto).
 
-## Pruebas
+- CSRF en todos los POST de `WebApp`; token de 32 bytes en hex.
+- Escape en vistas con `e()`.
+- PDO preparado, sin concatenar SQL.
+- Listado y flash de éxito sin hash ni contraseña.
+- El cuerpo simulado del correo no incluye la contraseña.
+- Errores de persistencia: texto fijo, sin SQL.
 
-```bash
-composer install
-vendor/bin/phpunit
-```
+## Alcance y limitaciones
 
-En Windows también vale `php vendor/bin/phpunit`. Debe terminar con código de salida 0.
+Decisiones de esta prueba técnica:
 
-## Cómo está separado
-
-| Capa | Responsabilidad |
-| --- | --- |
-| `Domain` | Qué es un usuario válido: nombre, email, contraseña hasheada e identidad. |
-| `Application` | Orquesta el caso de uso. Depende de interfaces, no de PDO ni de SMTP. |
-| `Contracts` | `UserRepository`, `WelcomeEmailSender`, `WelcomeEmailPreview` y `UuidGenerator`. |
-| `Http` | Controlador web: rutas, sesión, CSRF y vistas. No conoce PDO. |
-| `Infrastructure` | Adapters concretos (PDO, memoria, correo falso, UUID) y `WebAppFactory`. |
-| `Support` | Generación de UUID v4. |
-
-## Garantías (y lo que no afirma)
-
-1. **Email único de verdad.** `findByEmail` en PHP solo falla pronto. La garantía está en SQLite: `UNIQUE` en `email` (`COLLATE NOCASE`) más el índice `users_email_unique`. Si dos peticiones pasan a la vez la comprobación PHP, el `INSERT` choca (`SQLSTATE 23000`) y se traduce a `EmailAlreadyRegistered`. No se puede registrar el mismo correo con distinto uso de mayúsculas.
-2. **UUID v4.** Se genera con `random_bytes`, versión 4 y variante RFC 4122. No se usa `uniqid()`. El id se guarda en `CHAR(36)`.
-3. **Guardar y después solicitar el correo.** Si `save` falla, no se llama a `send`. Si `send` falla, el usuario **sigue guardado** y el caso de uso no finge que el registro no existió; el correo se puede reintentar.
-4. **El caso de uso depende de interfaces.** `RegisterUser` recibe `UserRepository`, `WelcomeEmailSender` y `UuidGenerator` por constructor. No instancia `PdoUserRepository`, `FakeWelcomeEmailSender` ni genera UUID por su cuenta. La web (`Http\WebApp`) no conoce PDO: el cableado está en `WebAppFactory`.
-5. **El adapter falso no entrega correo.** `WelcomeEmailSender` es el puerto; `FakeWelcomeEmailSender` muestra para, asunto y cuerpo. No hay SMTP. El registro del usuario y la simulación del correo están separados: primero se persiste, después se pide el envío simulado.
-6. **Formularios POST con CSRF.** Cada POST lleva un token de sesión; si falta o no coincide, no se registra, reenvía ni borra. Las vistas escapan con `htmlspecialchars` (`e()`). El listado solo muestra id, nombre y email: nunca la contraseña ni el hash.
+- Sin SMTP y sin envío real.
+- SQLite local (archivo o memoria), sin credenciales externas.
+- El fake de correo vive solo en la petición actual; la vista de bienvenida en la web depende del flash de sesión.
+- `UserPersistenceFailed` usa el mismo mensaje de «registro» también si falla un `DELETE`.
+- No hay autenticación de administradores ni HTTPS configurado en el proyecto.
