@@ -8,8 +8,10 @@
 </head>
 <body>
     <main class="card">
-        <h1>Crear cuenta</h1>
-        <p class="lead">Nombre completo, email y contraseña. El email debe ser único. La bienvenida es un envío simulado, no llega a una bandeja.</p>
+        <header class="brand">
+            <img class="logo" src="/img/logo.svg" alt="Crear cuenta" width="72" height="72">
+            <h1>Crear cuenta</h1>
+        </header>
 
         <?php if (is_array($success)): ?>
             <div class="msg ok" role="status">
@@ -37,7 +39,6 @@
 
             <button type="submit">Registrarme</button>
         </form>
-        <p class="hint">Los datos se guardan fuera de public, en <code>data/users.sqlite</code>. La contraseña no se muestra en los errores.</p>
     </main>
     <script src="/js/register.js" defer></script>
 </body>
