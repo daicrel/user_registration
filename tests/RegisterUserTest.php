@@ -15,6 +15,7 @@ use App\Domain\InvalidUserData;
 use App\Domain\User;
 use App\Domain\UserNotFound;
 use App\Domain\UserPersistenceFailed;
+use App\Domain\WelcomeEmailFailed;
 use App\Infrastructure\FakeWelcomeEmailSender;
 use App\Infrastructure\PdoUserRepository;
 use App\Infrastructure\PhpUuidGenerator;
@@ -128,7 +129,7 @@ final class RegisterUserTest extends TestCase
             $register->execute('Nora', 'nora@example.com', 'secret123');
             $this->fail('Debería fallar al persistir');
         } catch (UserPersistenceFailed $e) {
-            $this->assertSame('No se pudo completar el registro.', $e->getMessage());
+            $this->assertSame('No se pudo completar la operación.', $e->getMessage());
             $this->assertStringNotContainsString('sql', strtolower($e->getMessage()));
             $this->assertStringNotContainsString('sqlite', strtolower($e->getMessage()));
             $this->assertStringNotContainsString('password_hash', $e->getMessage());
@@ -141,7 +142,8 @@ final class RegisterUserTest extends TestCase
     {
         $schemaSql = (string) $this->pdo->query("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users'")->fetchColumn();
 
-        $this->assertStringContainsString('EMAIL TEXT NOT NULL COLLATE NOCASE UNIQUE', strtoupper($schemaSql));
+        $this->assertStringContainsString('EMAIL TEXT NOT NULL COLLATE NOCASE', strtoupper($schemaSql));
+        $this->assertStringNotContainsString('COLLATE NOCASE UNIQUE', strtoupper($schemaSql));
         $this->assertStringContainsString('ID CHAR(36)', strtoupper($schemaSql));
         $this->assertTrue($this->sqliteHasUniqueIndexOnEmail($this->pdo));
     }
@@ -454,6 +456,30 @@ final class RegisterUserTest extends TestCase
         $this->assertSame('¡Bienvenido a nuestra plataforma!', $last['subject']);
         $this->assertStringContainsString('Hola, Ana Pérez:', $last['body']);
         $this->assertStringNotContainsString('secret123', $last['body']);
+    }
+
+    public function testResendKeepsUserWhenSendFails(): void
+    {
+        $user = $this->register->execute('Ana Pérez', 'ana@example.com', 'secret123');
+        $mailer = new class implements WelcomeEmailSender {
+            public function send(User $user): void
+            {
+                throw new \RuntimeException('SMTP caido');
+            }
+        };
+        $resend = new ResendWelcomeEmail($this->users, $mailer);
+
+        try {
+            $resend->execute($user->id());
+            $this->fail('Debería informar del fallo del correo');
+        } catch (WelcomeEmailFailed $e) {
+            $this->assertSame('No se pudo simular el correo de bienvenida.', $e->getMessage());
+            $this->assertStringNotContainsString('SMTP', $e->getMessage());
+            $this->assertStringNotContainsString('secret123', $e->getMessage());
+            $this->assertInstanceOf(\RuntimeException::class, $e->getPrevious());
+            $this->assertNotNull($this->users->findById($user->id()));
+            $this->assertSame('ana@example.com', $this->users->findById($user->id())?->email());
+        }
     }
 
     public function testResendRejectsUnknownUserAndDoesNotSend(): void

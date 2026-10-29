@@ -9,8 +9,10 @@ use Throwable;
 
 final class UserPersistenceFailed extends RuntimeException
 {
-    public function __construct(?Throwable $previous = null)
-    {
-        parent::__construct('No se pudo completar el registro.', 0, $previous);
+    public function __construct(
+        ?Throwable $previous = null,
+        string $message = 'No se pudo completar la operación.'
+    ) {
+        parent::__construct($message, 0, $previous);
     }
 }

@@ -27,7 +27,7 @@ final class PdoUserRepository implements UserRepository
             'CREATE TABLE IF NOT EXISTS users (
                 id CHAR(36) NOT NULL PRIMARY KEY,
                 name TEXT NOT NULL,
-                email TEXT NOT NULL COLLATE NOCASE UNIQUE,
+                email TEXT NOT NULL COLLATE NOCASE,
                 password_hash TEXT NOT NULL
             )'
         );
@@ -55,7 +55,7 @@ final class PdoUserRepository implements UserRepository
                 throw new EmailAlreadyRegistered($user->email());
             }
 
-            throw new UserPersistenceFailed($e);
+            throw new UserPersistenceFailed($e, 'No se pudo guardar el usuario.');
         }
     }
 
@@ -127,7 +127,7 @@ final class PdoUserRepository implements UserRepository
             $statement = $this->pdo->prepare('DELETE FROM users WHERE id = :id');
             $statement->execute([':id' => $id]);
         } catch (PDOException $e) {
-            throw new UserPersistenceFailed($e);
+            throw new UserPersistenceFailed($e, 'No se pudo eliminar el usuario.');
         }
     }
 

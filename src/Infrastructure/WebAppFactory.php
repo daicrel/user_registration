@@ -20,7 +20,7 @@ final class WebAppFactory
     public static function create(string $projectRoot): WebApp
     {
         $dataDir = $projectRoot . '/data';
-        if (!is_dir($dataDir) && !mkdir($dataDir, 0777, true) && !is_dir($dataDir)) {
+        if (!is_dir($dataDir) && !mkdir($dataDir, 0755, true) && !is_dir($dataDir)) {
             throw new RuntimeException('No se pudo crear el directorio data.');
         }
 

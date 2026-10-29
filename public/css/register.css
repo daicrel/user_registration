@@ -117,6 +117,12 @@ button:hover {
     color: var(--err);
 }
 
+.warn {
+    background: #fffbeb;
+    color: #92400e;
+    margin-top: 12px;
+}
+
 .msg p {
     margin: 0 0 6px;
 }

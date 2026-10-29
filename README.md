@@ -113,7 +113,8 @@ Ejecución de esta auditoría: PHPUnit 10.5.62, **35 tests, 132 assertions**, c�
 | Alta, hash, UUID, email normalizado, correo simulado | `RegisterUserTest` |
 | Duplicado (mismo email y distinto casing) | `RegisterUserTest` |
 | `UNIQUE` SQLite sin pasar por `findByEmail`; índice `users_email_unique` | `RegisterUserTest` |
-| `save` antes de `send`; usuario conservado si `send` lanza | `RegisterUserTest` |
+| `save` antes de `send`; usuario conservado si `send` lanza; aviso web si no hay preview | `RegisterUserTest`, `WebAppTest` |
+| PRG: correo en flash, fake nuevo vacío, flash de un solo uso | `WebAppTest` |
 | Reenvío a id existente; rechazo si no existe | `RegisterUserTest`, `WebAppTest` |
 | Borrado y liberación del email | `RegisterUserTest`, `WebAppTest` |
 | Listado sin hash | `RegisterUserTest` |
@@ -161,7 +162,8 @@ user_registration/
 │   │   ├── EmailAlreadyRegistered.php
 │   │   ├── InvalidUserData.php
 │   │   ├── UserNotFound.php
-│   │   └── UserPersistenceFailed.php
+│   │   ├── UserPersistenceFailed.php
+│   │   └── WelcomeEmailFailed.php
 │   ├── Http/
 │   │   ├── WebApp.php
 │   │   ├── View.php
@@ -205,7 +207,8 @@ Sin contenedor de inyección ni bus de eventos. Las reglas de negocio no están 
 | `EmailAlreadyRegistered` | Email ya existente. |
 | `InvalidUserData` | Datos de entrada no válidos. |
 | `UserNotFound` | Id inexistente en reenvío o borrado. |
-| `UserPersistenceFailed` | Mensaje fijo «No se pudo completar el registro.»; la excepción PDO original va en `getPrevious()`. |
+| `UserPersistenceFailed` | Mensaje de operación (`guardar` / `eliminar` / genérico), sin SQL. La excepción PDO va en `getPrevious()`. |
+| `WelcomeEmailFailed` | Fallo de `send` en el reenvío. Mensaje fijo, sin detalles internos. |
 
 ### Application
 
@@ -213,9 +216,9 @@ Método público en todos: `execute(...)`.
 
 | Caso de uso | Qué hace |
 | --- | --- |
-| `RegisterUser` | `UuidGenerator::v4()`, `User::register`, `findByEmail`, `save`, luego `WelcomeEmailSender::send`. Si `send` lanza, el usuario ya está guardado. |
+| `RegisterUser` | `UuidGenerator::v4()`, `User::register`, `findByEmail`, `save`, luego `WelcomeEmailSender::send`. Si `send` lanza, el usuario ya está guardado. La web lo detecta porque `lastEmail()` queda vacío. |
 | `ListUsers` | Arrays con `id`, `name` y `email`. |
-| `ResendWelcomeEmail` | `findById` y `send`. No usa `WelcomeEmailPreview`. |
+| `ResendWelcomeEmail` | `findById` y `send`. Si `send` lanza, `WelcomeEmailFailed`; el usuario no se toca. |
 | `DeleteUser` | `findById` y `deleteById`. |
 
 La web usa los cuatro. La demo solo `RegisterUser`.
@@ -259,7 +262,7 @@ Otro correo (SMTP u otro) implementaría `WelcomeEmailSender` y se inyectaría e
 
 | Clase | Implementa | Comportamiento |
 | --- | --- | --- |
-| `PdoUserRepository` | `UserRepository` | Prepares, `ATTR_EMULATE_PREPARES` en false. Tabla `users`: `id CHAR(36)` PK, `email TEXT NOT NULL COLLATE NOCASE UNIQUE`, `password_hash`. Índice `users_email_unique`. `SQLSTATE 23000` de email → `EmailAlreadyRegistered`. |
+| `PdoUserRepository` | `UserRepository` | Prepares, `ATTR_EMULATE_PREPARES` en false. Tabla `users`: `id CHAR(36)` PK, `email TEXT NOT NULL COLLATE NOCASE`, `password_hash`. Unicidad con el índice `users_email_unique` (`COLLATE NOCASE`), también en bases antiguas. `SQLSTATE 23000` de email → `EmailAlreadyRegistered`. |
 | `InMemoryUserRepository` | `UserRepository` | Array cuya clave es el email normalizado. Lo usan los tests de `WebApp`. |
 | `FakeWelcomeEmailSender` | `WelcomeEmailSender` y `WelcomeEmailPreview` | Array privado `$requested`. Sin SMTP, sin archivo, sin tabla. |
 | `PhpUuidGenerator` | `UuidGenerator` | `App\Support\Uuid::v4()` (`random_bytes`). |
@@ -281,7 +284,7 @@ En CLI no hay PRG: `demo.php` lee el fake en el mismo proceso.
 
 ## Decisiones técnicas
 
-1. **Email único.** Normalización en PHP y `UNIQUE` + `COLLATE NOCASE` (columna e índice). El `INSERT` es la garantía si dos peticiones pasan el `findByEmail`.
+1. **Email único.** Normalización en PHP e índice `users_email_unique` (`COLLATE NOCASE`). El `INSERT` es la garantía si dos peticiones pasan el `findByEmail`.
 2. **Contraseñas.** `password_hash(..., PASSWORD_DEFAULT)`. Nunca texto plano.
 3. **UUID v4.** `random_bytes(16)` en `Uuid::v4()`, inyectado con `UuidGenerator`.
 4. **SQLite.** Web: `data/users.sqlite`. Demo y la mayoría de `RegisterUserTest`: memoria.
@@ -307,6 +310,5 @@ Decisiones de esta prueba técnica:
 
 - Sin SMTP y sin envío real.
 - SQLite local (archivo o memoria), sin credenciales externas.
-- El fake de correo vive solo en la petición actual; la vista de bienvenida en la web depende del flash de sesión.
-- `UserPersistenceFailed` usa el mismo mensaje de «registro» también si falla un `DELETE`.
+- El fake de correo vive solo en la petición actual; la vista de bienvenida en la web depende del flash de sesión. Si `send` falla, el usuario queda registrado y se muestra un aviso, no el correo simulado.
 - No hay autenticación de administradores ni HTTPS configurado en el proyecto.

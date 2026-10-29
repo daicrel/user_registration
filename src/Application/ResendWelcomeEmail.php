@@ -8,6 +8,8 @@ use App\Contracts\UserRepository;
 use App\Contracts\WelcomeEmailSender;
 use App\Domain\User;
 use App\Domain\UserNotFound;
+use App\Domain\WelcomeEmailFailed;
+use Throwable;
 
 final class ResendWelcomeEmail
 {
@@ -24,7 +26,11 @@ final class ResendWelcomeEmail
             throw new UserNotFound($userId);
         }
 
-        $this->welcomeEmailSender->send($user);
+        try {
+            $this->welcomeEmailSender->send($user);
+        } catch (Throwable $e) {
+            throw new WelcomeEmailFailed($e);
+        }
 
         return $user;
     }

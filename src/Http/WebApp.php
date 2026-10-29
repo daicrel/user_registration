@@ -13,6 +13,7 @@ use App\Domain\EmailAlreadyRegistered;
 use App\Domain\InvalidUserData;
 use App\Domain\UserNotFound;
 use App\Domain\UserPersistenceFailed;
+use App\Domain\WelcomeEmailFailed;
 
 final class WebApp
 {
@@ -76,7 +77,7 @@ final class WebApp
                     $this->flash->set('notice', 'Se simuló el reenvío del correo de bienvenida.');
 
                     return ['location' => $redirect . '?page=users#welcome-email'];
-                } catch (UserNotFound | UserPersistenceFailed $e) {
+                } catch (UserNotFound | UserPersistenceFailed | WelcomeEmailFailed $e) {
                     $error = $e->getMessage();
                     $page = 'users';
                 }
@@ -92,7 +93,16 @@ final class WebApp
                         'name' => $user->name(),
                         'email' => $user->email(),
                     ]);
-                    $this->flash->set('welcome_email', $this->welcomePreview->lastEmail());
+
+                    $preview = $this->welcomePreview->lastEmail();
+                    if ($preview !== null) {
+                        $this->flash->set('welcome_email', $preview);
+                    } else {
+                        $this->flash->set(
+                            'notice',
+                            'El usuario se ha registrado, pero no se pudo simular el correo de bienvenida.'
+                        );
+                    }
 
                     return ['location' => $redirect];
                 } catch (InvalidUserData | EmailAlreadyRegistered | UserPersistenceFailed $e) {

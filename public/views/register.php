@@ -9,6 +9,9 @@
             <p><strong>Usuario registrado</strong></p>
             <p><?= e((string) $success['name']) ?> · <?= e((string) $success['email']) ?></p>
         </div>
+        <?php if (is_string($notice)): ?>
+            <div class="msg warn" role="status"><?= e($notice) ?></div>
+        <?php endif; ?>
         <div class="actions">
             <a class="btn" href="/">Registrar otro usuario</a>
             <a class="btn btn-secondary" href="/?page=users">Ver usuarios</a>
