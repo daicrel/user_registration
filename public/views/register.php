@@ -21,6 +21,7 @@
 
     <?php if (!is_array($success)): ?>
         <form id="register-form" method="post" action="" autocomplete="on">
+            <?php require __DIR__ . '/_csrf.php'; ?>
             <input type="hidden" name="action" value="register">
 
             <label for="name">Nombre completo</label>

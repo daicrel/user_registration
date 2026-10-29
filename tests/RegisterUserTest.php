@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests;
 
 use App\Application\DeleteUser;
+use App\Application\ListUsers;
 use App\Application\RegisterUser;
 use App\Application\ResendWelcomeEmail;
 use App\Contracts\UuidGenerator;
@@ -12,6 +13,7 @@ use App\Contracts\WelcomeEmailSender;
 use App\Domain\EmailAlreadyRegistered;
 use App\Domain\InvalidUserData;
 use App\Domain\User;
+use App\Domain\UserNotFound;
 use App\Domain\UserPersistenceFailed;
 use App\Infrastructure\FakeWelcomeEmailSender;
 use App\Infrastructure\PdoUserRepository;
@@ -46,6 +48,12 @@ final class RegisterUserTest extends TestCase
         $this->assertNotNull($this->users->findByEmail('ana@example.com'));
         $this->assertNotSame('secret123', $user->passwordHash());
         $this->assertTrue($user->verifyPassword('secret123'));
+        $this->assertNotFalse(password_get_info($user->passwordHash())['algo']);
+
+        $storedHash = $this->pdo->query("SELECT password_hash FROM users WHERE email = 'ana@example.com'")->fetchColumn();
+        $this->assertIsString($storedHash);
+        $this->assertNotSame('secret123', $storedHash);
+        $this->assertTrue(password_verify('secret123', $storedHash));
         $this->assertTrue($this->emails->wasRequestedFor('ana@example.com'));
     }
 
@@ -55,6 +63,14 @@ final class RegisterUserTest extends TestCase
 
         $this->expectException(EmailAlreadyRegistered::class);
         $this->register->execute('Otra Ana', 'ana@example.com', 'secret123');
+    }
+
+    public function testRejectsDuplicateEmailRegardlessOfLetterCase(): void
+    {
+        $this->register->execute('Ana Pérez', 'ana@example.com', 'secret123');
+
+        $this->expectException(EmailAlreadyRegistered::class);
+        $this->register->execute('Otra Ana', 'ANA@EXAMPLE.COM', 'otraClave9');
     }
 
     public function testDuplicateEmailDoesNotRequestWelcomeEmailAgain(): void
@@ -338,12 +354,18 @@ final class RegisterUserTest extends TestCase
         $this->assertSame('ana@example.com', $listed[0]->email());
         $this->assertNotSame('', $listed[0]->id());
 
+        $listed = (new ListUsers($this->users))->execute();
+        $this->assertSame(['id', 'name', 'email'], array_keys($listed[0]));
+        $this->assertSame('Ana Pérez', $listed[0]['name']);
+        $this->assertSame('ana@example.com', $listed[0]['email']);
+
         $usersView = (string) file_get_contents(dirname(__DIR__) . '/public/views/users.php');
         $this->assertStringNotContainsString('password', $usersView);
         $this->assertStringNotContainsString('hash', $usersView);
         $this->assertStringContainsString('name', $usersView);
         $this->assertStringContainsString('email', $usersView);
         $this->assertStringContainsString('id', $usersView);
+        $this->assertStringContainsString('_csrf', $usersView);
     }
 
     public function testResendWelcomeEmailUsesFakeAdapter(): void
@@ -361,6 +383,19 @@ final class RegisterUserTest extends TestCase
         $this->assertStringNotContainsString('secret123', $last['body']);
     }
 
+    public function testResendRejectsUnknownUserAndDoesNotSend(): void
+    {
+        $this->register->execute('Ana Pérez', 'ana@example.com', 'secret123');
+        $resend = new ResendWelcomeEmail($this->users, $this->emails);
+
+        try {
+            $resend->execute(Uuid::v4());
+            $this->fail('Debería rechazar un usuario inexistente');
+        } catch (UserNotFound) {
+            $this->assertCount(1, $this->emails->requested());
+        }
+    }
+
     public function testDeletesUserAndFreesTheEmail(): void
     {
         $user = $this->register->execute('Ana Pérez', 'ana@example.com', 'secret123');
@@ -371,5 +406,13 @@ final class RegisterUserTest extends TestCase
         $this->assertSame([], $this->users->all());
         $this->register->execute('Otra Ana', 'ana@example.com', 'secret123');
         $this->assertCount(1, $this->users->all());
+    }
+
+    public function testDeleteRejectsUnknownUser(): void
+    {
+        $delete = new DeleteUser($this->users);
+
+        $this->expectException(UserNotFound::class);
+        $delete->execute(Uuid::v4());
     }
 }

@@ -23,11 +23,27 @@ final class WebApp
         private readonly ListUsers $listUsers,
         private readonly WelcomeEmailPreview $welcomePreview,
         private readonly SessionFlash $flash,
-        private readonly View $view
+        private readonly View $view,
+        private readonly CsrfToken $csrf
     ) {
     }
 
     public function run(): void
+    {
+        $result = $this->handle();
+
+        if (isset($result['location'])) {
+            header('Location: ' . $result['location']);
+            exit;
+        }
+
+        $this->view->render('home.php', $result['data']);
+    }
+
+    /**
+     * @return array{location: string}|array{data: array<string, mixed>}
+     */
+    public function handle(): array
     {
         if (session_status() !== PHP_SESSION_ACTIVE) {
             session_start();
@@ -41,10 +57,14 @@ final class WebApp
         $redirect = strtok((string) ($_SERVER['REQUEST_URI'] ?? '/'), '?') ?: '/';
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
-            if ($action === 'delete') {
+            if (!$this->csrf->isValid($_POST['_csrf'] ?? null)) {
+                $error = 'La solicitud no es válida. Vuelve a intentarlo.';
+                $page = in_array($action, ['resend', 'delete'], true) ? 'users' : 'register';
+            } elseif ($action === 'delete') {
                 try {
                     $this->deleteUser->execute((string) ($_POST['user_id'] ?? ''));
-                    $this->redirect($redirect . '?page=users');
+
+                    return ['location' => $redirect . '?page=users'];
                 } catch (UserNotFound | UserPersistenceFailed $e) {
                     $error = $e->getMessage();
                     $page = 'users';
@@ -54,7 +74,8 @@ final class WebApp
                     $this->resendWelcome->execute((string) ($_POST['user_id'] ?? ''));
                     $this->flash->set('welcome_email', $this->welcomePreview->lastEmail());
                     $this->flash->set('notice', 'Se simuló el reenvío del correo de bienvenida.');
-                    $this->redirect($redirect . '?page=users#welcome-email');
+
+                    return ['location' => $redirect . '?page=users#welcome-email'];
                 } catch (UserNotFound | UserPersistenceFailed $e) {
                     $error = $e->getMessage();
                     $page = 'users';
@@ -72,7 +93,8 @@ final class WebApp
                         'email' => $user->email(),
                     ]);
                     $this->flash->set('welcome_email', $this->welcomePreview->lastEmail());
-                    $this->redirect($redirect);
+
+                    return ['location' => $redirect];
                 } catch (InvalidUserData | EmailAlreadyRegistered | UserPersistenceFailed $e) {
                     $error = $e->getMessage();
                     $page = 'register';
@@ -84,23 +106,18 @@ final class WebApp
         $welcomeEmail = $this->flash->pull('welcome_email');
         $notice = $this->flash->pull('notice');
 
-        $listedUsers = $page === 'users' ? $this->listUsers->execute() : [];
-
-        $this->view->render('home.php', [
-            'page' => $page,
-            'error' => $error,
-            'success' => is_array($success) ? $success : null,
-            'notice' => is_string($notice) ? $notice : null,
-            'welcomeEmail' => is_array($welcomeEmail) ? $welcomeEmail : null,
-            'listedUsers' => $listedUsers,
-            'name' => $name,
-            'email' => $email,
-        ]);
-    }
-
-    private function redirect(string $location): never
-    {
-        header('Location: ' . $location);
-        exit;
+        return [
+            'data' => [
+                'page' => $page,
+                'error' => $error,
+                'success' => is_array($success) ? $success : null,
+                'notice' => is_string($notice) ? $notice : null,
+                'welcomeEmail' => is_array($welcomeEmail) ? $welcomeEmail : null,
+                'listedUsers' => $page === 'users' ? $this->listUsers->execute() : [],
+                'name' => $name,
+                'email' => $email,
+                'csrfToken' => $this->csrf->get(),
+            ],
+        ];
     }
 }
