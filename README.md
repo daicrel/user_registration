@@ -53,6 +53,16 @@ new RegisterUser(new PdoUserRepository($pdo), new FakeWelcomeEmailSender());
 
 Para SMTP, añadirías otra clase que implemente `WelcomeEmailSender` y la pasarías en el constructor. `RegisterUser` no cambia.
 
+## Vista web
+
+En la carpeta del proyecto:
+
+```bash
+php -S 127.0.0.1:8080 -t public
+```
+
+Abre [http://127.0.0.1:8080](http://127.0.0.1:8080). El `-t public` es obligatorio: si omites eso, PHP busca `index.php` en la raíz del proyecto y puede responder `Not Found`. El formulario está en `public/index.php`. Los usuarios se guardan en `data/users.sqlite`, fuera de `public`.
+
 ## Cómo ejecutar
 
 Demo interactiva (nombre vacío + Enter para salir):

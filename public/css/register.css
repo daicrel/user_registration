@@ -1,0 +1,126 @@
+:root {
+    color-scheme: light;
+    --bg: #f3f4f6;
+    --card: #ffffff;
+    --text: #111827;
+    --muted: #6b7280;
+    --line: #e5e7eb;
+    --accent: #1d4ed8;
+    --accent-hover: #1e40af;
+    --ok-bg: #ecfdf5;
+    --ok: #065f46;
+    --err-bg: #fef2f2;
+    --err: #991b1b;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+.card {
+    width: 100%;
+    max-width: 420px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 28px;
+    box-shadow: 0 10px 30px rgba(17, 24, 39, 0.06);
+}
+
+h1 {
+    margin: 0 0 8px;
+    font-size: 1.45rem;
+}
+
+.lead {
+    margin: 0 0 22px;
+    color: var(--muted);
+    font-size: 0.95rem;
+    line-height: 1.45;
+}
+
+label {
+    display: block;
+    font-weight: 600;
+    margin: 0 0 6px;
+    font-size: 0.9rem;
+}
+
+input {
+    width: 100%;
+    margin-bottom: 14px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    font: inherit;
+}
+
+input:focus {
+    outline: 2px solid #93c5fd;
+    border-color: var(--accent);
+}
+
+button {
+    width: 100%;
+    margin-top: 6px;
+    border: 0;
+    border-radius: 10px;
+    padding: 12px;
+    background: var(--accent);
+    color: #fff;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+button:hover {
+    background: var(--accent-hover);
+}
+
+.msg {
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 18px;
+    font-size: 0.92rem;
+    line-height: 1.4;
+}
+
+.ok {
+    background: var(--ok-bg);
+    color: var(--ok);
+}
+
+.err {
+    background: var(--err-bg);
+    color: var(--err);
+}
+
+.msg p {
+    margin: 0 0 6px;
+}
+
+.msg p:last-child {
+    margin-bottom: 0;
+}
+
+.hint {
+    margin: 16px 0 0;
+    color: var(--muted);
+    font-size: 0.8rem;
+}
+
+code {
+    font-size: 0.85em;
+}
