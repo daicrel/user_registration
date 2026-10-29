@@ -1,0 +1,51 @@
+.users h1 {
+    margin-bottom: 18px;
+}
+
+.empty {
+    margin: 0 0 16px;
+    color: var(--muted);
+}
+
+.user-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.user-item {
+    padding: 14px 0;
+    border-top: 1px solid var(--line);
+}
+
+.user-item:first-child {
+    border-top: 0;
+    padding-top: 0;
+}
+
+.user-name {
+    margin: 0 0 4px;
+    font-weight: 600;
+}
+
+.user-email,
+.user-id {
+    margin: 0 0 4px;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+.user-item form {
+    margin-top: 10px;
+}
+
+.user-item .btn {
+    width: auto;
+    padding: 8px 14px;
+    font-size: 0.9rem;
+}
+
+code {
+    font-size: 0.85em;
+    word-break: break-all;
+}

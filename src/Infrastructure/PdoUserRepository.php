@@ -79,6 +79,50 @@ final class PdoUserRepository implements UserRepository
             return null;
         }
 
+        return self::hydrate($row);
+    }
+
+    public function findById(string $id): ?User
+    {
+        try {
+            $statement = $this->pdo->prepare(
+                'SELECT id, name, email, password_hash
+                 FROM users
+                 WHERE id = :id
+                 LIMIT 1'
+            );
+            $statement->execute([':id' => $id]);
+            $row = $statement->fetch(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            throw new UserPersistenceFailed($e);
+        }
+
+        if ($row === false) {
+            return null;
+        }
+
+        return self::hydrate($row);
+    }
+
+    public function all(): array
+    {
+        try {
+            $statement = $this->pdo->query(
+                'SELECT id, name, email, password_hash FROM users ORDER BY name COLLATE NOCASE'
+            );
+            $rows = $statement === false ? [] : $statement->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            throw new UserPersistenceFailed($e);
+        }
+
+        return array_map(self::hydrate(...), $rows);
+    }
+
+    /**
+     * @param array{id: string, name: string, email: string, password_hash: string} $row
+     */
+    private static function hydrate(array $row): User
+    {
         return User::fromPersistence(
             $row['id'],
             $row['name'],

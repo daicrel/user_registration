@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests;
 
 use App\Application\RegisterUser;
+use App\Application\ResendWelcomeEmail;
 use App\Contracts\WelcomeEmailSender;
 use App\Domain\EmailAlreadyRegistered;
 use App\Domain\InvalidUserData;
@@ -295,5 +296,38 @@ final class RegisterUserTest extends TestCase
 
         $this->expectException(EmailAlreadyRegistered::class);
         $repository->save($user);
+    }
+
+    public function testListsRegisteredUsersWithoutPasswordHashes(): void
+    {
+        $this->register->execute('Ana Pérez', 'ana@example.com', 'secret123');
+        $listed = $this->users->all();
+
+        $this->assertCount(1, $listed);
+        $this->assertSame('Ana Pérez', $listed[0]->name());
+        $this->assertSame('ana@example.com', $listed[0]->email());
+        $this->assertNotSame('', $listed[0]->id());
+
+        $usersView = (string) file_get_contents(dirname(__DIR__) . '/public/views/users.php');
+        $this->assertStringNotContainsString('password', $usersView);
+        $this->assertStringNotContainsString('hash', $usersView);
+        $this->assertStringContainsString('name', $usersView);
+        $this->assertStringContainsString('email', $usersView);
+        $this->assertStringContainsString('id', $usersView);
+    }
+
+    public function testResendWelcomeEmailUsesFakeAdapter(): void
+    {
+        $user = $this->register->execute('Ana Pérez', 'ana@example.com', 'secret123');
+        $resend = new ResendWelcomeEmail($this->users, $this->emails);
+        $resend->execute($user->id());
+
+        $this->assertCount(2, $this->emails->requested());
+        $last = $this->emails->lastEmail();
+        $this->assertNotNull($last);
+        $this->assertSame('ana@example.com', $last['to']);
+        $this->assertSame('¡Bienvenido a nuestra plataforma!', $last['subject']);
+        $this->assertStringContainsString('Hola, Ana Pérez:', $last['body']);
+        $this->assertStringNotContainsString('secret123', $last['body']);
     }
 }

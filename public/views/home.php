@@ -7,10 +7,16 @@
     <link rel="stylesheet" href="/css/home.css">
     <link rel="stylesheet" href="/css/register.css">
     <link rel="stylesheet" href="/css/welcome.css">
+    <link rel="stylesheet" href="/css/users.css">
 </head>
 <body>
     <div class="layout">
-        <?php require __DIR__ . '/register.php'; ?>
+        <?php if ($page === 'users'): ?>
+            <?php require __DIR__ . '/users.php'; ?>
+        <?php else: ?>
+            <?php require __DIR__ . '/register.php'; ?>
+        <?php endif; ?>
+
         <?php if (is_array($welcomeEmail)): ?>
             <?php require __DIR__ . '/welcome.php'; ?>
         <?php endif; ?>

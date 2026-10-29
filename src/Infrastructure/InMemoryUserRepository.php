@@ -29,4 +29,20 @@ final class InMemoryUserRepository implements UserRepository
     {
         return $this->users[Email::normalize($email)] ?? null;
     }
+
+    public function findById(string $id): ?User
+    {
+        foreach ($this->users as $user) {
+            if ($user->id() === $id) {
+                return $user;
+            }
+        }
+
+        return null;
+    }
+
+    public function all(): array
+    {
+        return array_values($this->users);
+    }
 }
