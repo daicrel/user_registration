@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
+use App\Application\DeleteUser;
 use App\Application\RegisterUser;
 use App\Application\ResendWelcomeEmail;
 use App\Domain\EmailAlreadyRegistered;
@@ -29,9 +30,11 @@ $users = new PdoUserRepository($pdo);
 $emails = new FakeWelcomeEmailSender();
 $register = new RegisterUser($users, $emails);
 $resendWelcome = new ResendWelcomeEmail($users, $emails);
+$deleteUser = new DeleteUser($users);
 
 $error = null;
 $success = null;
+$notice = null;
 $welcomeEmail = null;
 $name = '';
 $email = '';
@@ -39,11 +42,23 @@ $page = (string) ($_GET['page'] ?? 'register');
 $action = (string) ($_POST['action'] ?? 'register');
 $redirect = strtok((string) $_SERVER['REQUEST_URI'], '?') ?: '/';
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'delete') {
+    try {
+        $deleteUser->execute((string) ($_POST['user_id'] ?? ''));
+        header('Location: ' . $redirect . '?page=users');
+        exit;
+    } catch (UserNotFound | UserPersistenceFailed $e) {
+        $error = $e->getMessage();
+        $page = 'users';
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'resend') {
     try {
         $resendWelcome->execute((string) ($_POST['user_id'] ?? ''));
         $_SESSION['flash_welcome_email'] = $emails->lastEmail();
-        header('Location: ' . $redirect . '?page=users');
+        $_SESSION['flash_notice'] = 'Se simuló el reenvío del correo de bienvenida.';
+        header('Location: ' . $redirect . '?page=users#welcome-email');
         exit;
     } catch (UserNotFound | UserPersistenceFailed $e) {
         $error = $e->getMessage();
@@ -80,6 +95,11 @@ if (isset($_SESSION['flash_success']) && is_array($_SESSION['flash_success'])) {
 if (isset($_SESSION['flash_welcome_email']) && is_array($_SESSION['flash_welcome_email'])) {
     $welcomeEmail = $_SESSION['flash_welcome_email'];
     unset($_SESSION['flash_welcome_email']);
+}
+
+if (isset($_SESSION['flash_notice']) && is_string($_SESSION['flash_notice'])) {
+    $notice = $_SESSION['flash_notice'];
+    unset($_SESSION['flash_notice']);
 }
 
 $listedUsers = [];

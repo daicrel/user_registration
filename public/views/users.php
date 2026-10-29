@@ -16,11 +16,18 @@
                     <p class="user-name"><?= e((string) $listedUser['name']) ?></p>
                     <p class="user-email"><?= e((string) $listedUser['email']) ?></p>
                     <p class="user-id">Id: <code><?= e((string) $listedUser['id']) ?></code></p>
-                    <form method="post" action="/?page=users">
-                        <input type="hidden" name="action" value="resend">
-                        <input type="hidden" name="user_id" value="<?= e((string) $listedUser['id']) ?>">
-                        <button class="btn btn-secondary" type="submit">Simular reenvío</button>
-                    </form>
+                    <div class="user-actions">
+                        <form method="post" action="/?page=users">
+                            <input type="hidden" name="action" value="resend">
+                            <input type="hidden" name="user_id" value="<?= e((string) $listedUser['id']) ?>">
+                            <button class="btn btn-secondary" type="submit">Reenvío de correo</button>
+                        </form>
+                        <form method="post" action="/?page=users" onsubmit="return confirm('¿Borrar este usuario?');">
+                            <input type="hidden" name="action" value="delete">
+                            <input type="hidden" name="user_id" value="<?= e((string) $listedUser['id']) ?>">
+                            <button class="btn btn-danger" type="submit">Borrar usuario</button>
+                        </form>
+                    </div>
                 </li>
             <?php endforeach; ?>
         </ul>

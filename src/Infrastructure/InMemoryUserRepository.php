@@ -45,4 +45,13 @@ final class InMemoryUserRepository implements UserRepository
     {
         return array_values($this->users);
     }
-}
+
+    public function deleteById(string $id): void
+    {
+        foreach ($this->users as $key => $user) {
+            if ($user->id() === $id) {
+                unset($this->users[$key]);
+                return;
+            }
+        }
+    }

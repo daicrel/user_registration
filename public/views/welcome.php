@@ -1,4 +1,7 @@
-<aside class="email" aria-label="Correo de bienvenida simulado">
+<aside class="email" id="welcome-email" aria-label="Correo de bienvenida simulado">
+    <?php if (is_string($notice)): ?>
+        <p class="email-notice"><?= e($notice) ?></p>
+    <?php endif; ?>
     <h2>Correo de bienvenida (simulado)</h2>
     <p class="email-meta">
         <span class="email-icon" aria-hidden="true">✉</span>

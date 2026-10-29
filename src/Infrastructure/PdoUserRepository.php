@@ -118,6 +118,16 @@ final class PdoUserRepository implements UserRepository
         return array_map(self::hydrate(...), $rows);
     }
 
+    public function deleteById(string $id): void
+    {
+        try {
+            $statement = $this->pdo->prepare('DELETE FROM users WHERE id = :id');
+            $statement->execute([':id' => $id]);
+        } catch (PDOException $e) {
+            throw new UserPersistenceFailed($e);
+        }
+    }
+
     /**
      * @param array{id: string, name: string, email: string, password_hash: string} $row
      */

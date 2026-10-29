@@ -18,4 +18,6 @@ interface UserRepository
      * @return User[]
      */
     public function all(): array;
+
+    public function deleteById(string $id): void;
 }

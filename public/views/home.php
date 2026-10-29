@@ -11,14 +11,14 @@
 </head>
 <body>
     <div class="layout">
+        <?php if (is_array($welcomeEmail)): ?>
+            <?php require __DIR__ . '/welcome.php'; ?>
+        <?php endif; ?>
+
         <?php if ($page === 'users'): ?>
             <?php require __DIR__ . '/users.php'; ?>
         <?php else: ?>
             <?php require __DIR__ . '/register.php'; ?>
-        <?php endif; ?>
-
-        <?php if (is_array($welcomeEmail)): ?>
-            <?php require __DIR__ . '/welcome.php'; ?>
         <?php endif; ?>
     </div>
     <script src="/js/register.js" defer></script>

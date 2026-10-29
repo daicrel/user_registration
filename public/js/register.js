@@ -1,4 +1,9 @@
 (function () {
+    const welcome = document.getElementById('welcome-email');
+    if (welcome instanceof HTMLElement) {
+        welcome.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
     const form = document.getElementById('register-form');
     const error = document.querySelector('.msg.err');
     const button = form ? form.querySelector('button[type="submit"]') : null;

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests;
 
+use App\Application\DeleteUser;
 use App\Application\RegisterUser;
 use App\Application\ResendWelcomeEmail;
 use App\Contracts\WelcomeEmailSender;
@@ -329,5 +330,17 @@ final class RegisterUserTest extends TestCase
         $this->assertSame('¡Bienvenido a nuestra plataforma!', $last['subject']);
         $this->assertStringContainsString('Hola, Ana Pérez:', $last['body']);
         $this->assertStringNotContainsString('secret123', $last['body']);
+    }
+
+    public function testDeletesUserAndFreesTheEmail(): void
+    {
+        $user = $this->register->execute('Ana Pérez', 'ana@example.com', 'secret123');
+        $delete = new DeleteUser($this->users);
+        $delete->execute($user->id());
+
+        $this->assertNull($this->users->findById($user->id()));
+        $this->assertSame([], $this->users->all());
+        $this->register->execute('Otra Ana', 'ana@example.com', 'secret123');
+        $this->assertCount(1, $this->users->all());
     }
 }
