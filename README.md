@@ -102,7 +102,7 @@ En Windows también vale `php vendor/bin/phpunit`. Debe terminar con código de 
 
 ## Garantías (y lo que no afirma)
 
-1. **Email único de verdad.** Hay un `findByEmail` en PHP para fallar pronto (email normalizado a minúsculas), y además `UNIQUE` con `COLLATE NOCASE`. Si dos peticiones pasan a la vez la comprobación, el `INSERT` choca y se traduce a `EmailAlreadyRegistered`. No se puede registrar el mismo correo con distinto uso de mayúsculas.
+1. **Email único de verdad.** `findByEmail` en PHP solo falla pronto. La garantía está en SQLite: `UNIQUE` en `email` (`COLLATE NOCASE`) más el índice `users_email_unique`. Si dos peticiones pasan a la vez la comprobación PHP, el `INSERT` choca (`SQLSTATE 23000`) y se traduce a `EmailAlreadyRegistered`. No se puede registrar el mismo correo con distinto uso de mayúsculas.
 2. **UUID v4.** Se genera con `random_bytes`, versión 4 y variante RFC 4122. No se usa `uniqid()`. El id se guarda en `CHAR(36)`.
 3. **Guardar y después solicitar el correo.** Si `save` falla, no se llama a `send`. Si `send` falla, el usuario **sigue guardado** y el caso de uso no finge que el registro no existió; el correo se puede reintentar.
 4. **El caso de uso depende de interfaces.** `RegisterUser` recibe `UserRepository`, `WelcomeEmailSender` y `UuidGenerator` por constructor. No instancia `PdoUserRepository`, `FakeWelcomeEmailSender` ni genera UUID por su cuenta. La web (`Http\WebApp`) no conoce PDO: el cableado está en `WebAppFactory`.

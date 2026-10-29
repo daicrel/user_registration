@@ -143,6 +143,79 @@ final class RegisterUserTest extends TestCase
 
         $this->assertStringContainsString('EMAIL TEXT NOT NULL COLLATE NOCASE UNIQUE', strtoupper($schemaSql));
         $this->assertStringContainsString('ID CHAR(36)', strtoupper($schemaSql));
+        $this->assertTrue($this->sqliteHasUniqueIndexOnEmail($this->pdo));
+    }
+
+    public function testSqliteUniqueStopsRawInsertWithoutPhpPrecheck(): void
+    {
+        $insert = $this->pdo->prepare(
+            'INSERT INTO users (id, name, email, password_hash)
+             VALUES (:id, :name, :email, :password_hash)'
+        );
+        $insert->execute([
+            ':id' => Uuid::v4(),
+            ':name' => 'Uno',
+            ':email' => 'unico@example.com',
+            ':password_hash' => 'hash-a',
+        ]);
+
+        try {
+            $insert->execute([
+                ':id' => Uuid::v4(),
+                ':name' => 'Dos',
+                ':email' => 'UNICO@example.com',
+                ':password_hash' => 'hash-b',
+            ]);
+            $this->fail('SQLite UNIQUE debería rechazar el segundo INSERT');
+        } catch (\PDOException $e) {
+            $this->assertSame('23000', (string) ($e->errorInfo[0] ?? ''));
+        }
+
+        $count = (int) $this->pdo->query(
+            "SELECT COUNT(*) FROM users WHERE email = 'unico@example.com' COLLATE NOCASE"
+        )->fetchColumn();
+        $this->assertSame(1, $count);
+    }
+
+    public function testSchemaAddsUniqueIndexOnLegacyTableWithoutColumnConstraint(): void
+    {
+        $pdo = new PDO('sqlite::memory:');
+        $pdo->exec(
+            'CREATE TABLE users (
+                id CHAR(36) NOT NULL PRIMARY KEY,
+                name TEXT NOT NULL,
+                email TEXT NOT NULL,
+                password_hash TEXT NOT NULL
+            )'
+        );
+        $pdo->prepare(
+            'INSERT INTO users (id, name, email, password_hash) VALUES (:id, :name, :email, :password_hash)'
+        )->execute([
+            ':id' => Uuid::v4(),
+            ':name' => 'Ana',
+            ':email' => 'ana@example.com',
+            ':password_hash' => 'hash-a',
+        ]);
+
+        PdoUserRepository::createSqliteSchema($pdo);
+
+        $this->assertTrue($this->sqliteHasUniqueIndexOnEmail($pdo));
+
+        $second = $pdo->prepare(
+            'INSERT INTO users (id, name, email, password_hash) VALUES (:id, :name, :email, :password_hash)'
+        );
+
+        try {
+            $second->execute([
+                ':id' => Uuid::v4(),
+                ':name' => 'Otra',
+                ':email' => 'ANA@example.com',
+                ':password_hash' => 'hash-b',
+            ]);
+            $this->fail('El índice UNIQUE debería aplicarse también a tablas antiguas');
+        } catch (\PDOException $e) {
+            $this->assertSame('23000', (string) ($e->errorInfo[0] ?? ''));
+        }
     }
 
     public function testUniqueConstraintRejectsSecondInsertWhenPhpCheckIsSkipped(): void
@@ -414,5 +487,25 @@ final class RegisterUserTest extends TestCase
 
         $this->expectException(UserNotFound::class);
         $delete->execute(Uuid::v4());
+    }
+
+    private function sqliteHasUniqueIndexOnEmail(PDO $pdo): bool
+    {
+        $indexes = $pdo->query("PRAGMA index_list('users')")->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($indexes as $index) {
+            if ((int) $index['unique'] !== 1) {
+                continue;
+            }
+
+            $columns = $pdo->query('PRAGMA index_info(' . $pdo->quote((string) $index['name']) . ')')->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($columns as $column) {
+                if (strcasecmp((string) $column['name'], 'email') === 0) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }

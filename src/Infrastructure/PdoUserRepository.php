@@ -31,6 +31,9 @@ final class PdoUserRepository implements UserRepository
                 password_hash TEXT NOT NULL
             )'
         );
+        $pdo->exec(
+            'CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique ON users(email COLLATE NOCASE)'
+        );
     }
 
     public function save(User $user): void
