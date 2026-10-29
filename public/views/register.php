@@ -1,7 +1,7 @@
 <main class="card">
     <header class="brand">
-        <img class="logo" src="/img/logo.svg" alt="Crear cuenta" width="72" height="72">
-        <h1>Crear cuenta</h1>
+        <img class="logo" src="/img/logo.svg" alt="Registro de usuarios" width="72" height="72">
+        <h1>Registro de usuarios</h1>
     </header>
 
     <?php if (is_array($success)): ?>

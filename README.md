@@ -82,21 +82,21 @@ Tras un POST **correcto** de alta o reenvío, `WebApp` copia `lastEmail()` a la 
 
 ## Demo por consola
 
-`demo.php` usa SQLite en memoria (`sqlite::memory:`), no `data/users.sqlite`. Solo ejecuta `RegisterUser` (más `PdoUserRepository`, `FakeWelcomeEmailSender` y `PhpUuidGenerator`).
+`demo.php` es otra interfaz sobre los **mismos** casos de uso que la web (`RegisterUser`, `ListUsers`, `ResendWelcomeEmail`, `DeleteUser`), con `PdoUserRepository`, `FakeWelcomeEmailSender` y `PhpUuidGenerator`.
 
-Interactivo (nombre vacío + Enter para salir). Comprueba email y unicidad antes de pedir la contraseña:
+Usa SQLite **en memoria** (`sqlite::memory:`), no `data/users.sqlite`, para no mezclar datos con la web. Durante la ejecución se reutiliza la misma instancia de repositorio: altas, listado, reenvío y borrado ven los mismos usuarios hasta salir.
 
 ```bash
 php demo.php
 ```
 
-Una sola llamada. Argumentos: nombre, email, contraseña (`$argv[1]`, `$argv[2]`, `$argv[3]`):
+Menú: registrar, consultar, reenviar correo simulado y eliminar (con confirmación). No muestra contraseñas ni hashes. El correo se presenta con `WelcomeEmailPreview::lastEmail()` y se indica que no hay SMTP.
+
+Registro rápido (sin menú). Argumentos: nombre, email, contraseña:
 
 ```bash
 php demo.php "Ana Pérez" "ana@example.com" "secret123"
 ```
-
-Escribe id, nombre, email y el texto simulado (`lastRequestDescription()`). No imprime contraseña ni hash. Como no hay redirección, el fake sigue siendo la misma instancia.
 
 ## Pruebas automatizadas
 
@@ -224,7 +224,7 @@ Método público en todos: `execute(...)`.
 | `ResendWelcomeEmail` | `findById` y `send`. Si `send` lanza, captura el `Throwable` y lanza `WelcomeEmailFailed` (mensaje fijo; el original va en `getPrevious()`). No borra ni altera al usuario. |
 | `DeleteUser` | `findById` y `deleteById`. |
 
-La web usa los cuatro. La demo solo `RegisterUser`.
+La web y `demo.php` usan los cuatro. La demo no duplica reglas de dominio: solo lee la consola y presenta resultados.
 
 ### HTTP
 
