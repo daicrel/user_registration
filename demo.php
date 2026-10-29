@@ -48,6 +48,62 @@ function leer(string $etiqueta): string
     return trim($linea);
 }
 
+function stdinEsTerminal(): bool
+{
+    return function_exists('stream_isatty') && @stream_isatty(STDIN);
+}
+
+function leerOculto(string $etiqueta): string
+{
+    echo $etiqueta;
+
+    if (!stdinEsTerminal()) {
+        $linea = fgets(STDIN);
+        if ($linea === false) {
+            echo "\n";
+            exit(0);
+        }
+
+        return trim($linea);
+    }
+
+    if (PHP_OS_FAMILY === 'Windows') {
+        $comando = 'powershell -NoProfile -Command ' . escapeshellarg(
+            '$p = Read-Host -AsSecureString; $b = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($p); try { [Runtime.InteropServices.Marshal]::PtrToStringAuto($b) } finally { if ($b -ne [IntPtr]::Zero) { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($b) } }'
+        );
+        $salida = @shell_exec($comando);
+        echo "\n";
+        if (!is_string($salida)) {
+            aviso('No se pudo ocultar la contraseña. El texto puede verse al escribirla.');
+
+            return leer('');
+        }
+
+        return rtrim($salida, "\r\n");
+    }
+
+    $oculto = @shell_exec('stty -echo 2>/dev/null');
+    if ($oculto === null) {
+        aviso('No se pudo ocultar la contraseña en esta terminal. El texto puede verse al escribirla.');
+        $linea = fgets(STDIN);
+        echo "\n";
+        if ($linea === false) {
+            exit(0);
+        }
+
+        return trim($linea);
+    }
+
+    $linea = fgets(STDIN);
+    @shell_exec('stty echo 2>/dev/null');
+    echo "\n";
+    if ($linea === false) {
+        exit(0);
+    }
+
+    return trim($linea);
+}
+
 function pausar(): void
 {
     leer("\nPulsa Enter para volver al menú...");
@@ -157,27 +213,28 @@ function elegirUsuario(array $listed, string $accion): ?array
     }
     echo "  0. Cancelar\n";
 
-    $eleccion = leer("\nNúmero: ");
-    if ($eleccion === '0' || $eleccion === '') {
-        aviso('Operación cancelada.');
+    $maximo = count($listed);
+    while (true) {
+        $eleccion = leer("\nNúmero: ");
+        if ($eleccion === '0' || $eleccion === '') {
+            aviso('Operación cancelada.');
 
-        return null;
+            return null;
+        }
+
+        if (!ctype_digit($eleccion)) {
+            error('Escribe un número de la lista, o 0 / Enter para cancelar.');
+            continue;
+        }
+
+        $indice = (int) $eleccion - 1;
+        if (!isset($listed[$indice])) {
+            error("No existe ese número. Elige entre 1 y {$maximo}, o 0 para cancelar.");
+            continue;
+        }
+
+        return $listed[$indice];
     }
-
-    if (!ctype_digit($eleccion)) {
-        error('Opción no válida.');
-
-        return null;
-    }
-
-    $indice = (int) $eleccion - 1;
-    if (!isset($listed[$indice])) {
-        error('No existe ese número en la lista.');
-
-        return null;
-    }
-
-    return $listed[$indice];
 }
 
 function mostrarCorreoSimulado(WelcomeEmailPreview $preview): void
@@ -267,7 +324,7 @@ while (true) {
         $name = leer('Nombre completo: ');
         $email = pedirEmail($users);
         if ($email !== null) {
-            $password = leer('Contraseña: ');
+            $password = leerOculto('Contraseña: ');
             registrarUsuario($register, $emails, $name, $email, $password);
         }
         pausar();
