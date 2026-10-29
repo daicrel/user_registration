@@ -64,47 +64,4 @@ function e(string $value): string
     return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
-?>
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Registro de usuarios</title>
-    <link rel="stylesheet" href="/css/register.css">
-</head>
-<body>
-    <main class="card">
-        <h1>Crear cuenta</h1>
-        <p class="lead">Nombre completo, email y contraseña. El email debe ser único. La bienvenida es un envío simulado, no llega a una bandeja.</p>
-
-        <?php if (is_array($success)): ?>
-            <div class="msg ok" role="status">
-                <p><strong>Usuario registrado</strong></p>
-                <p>Nombre: <?= e((string) $success['name']) ?></p>
-                <p>Email: <?= e((string) $success['email']) ?></p>
-                <p>Id: <code><?= e((string) $success['id']) ?></code></p>
-                <p><?= e((string) $success['welcome']) ?></p>
-            </div>
-        <?php endif; ?>
-
-        <?php if (is_string($error)): ?>
-            <div class="msg err" role="alert"><?= e($error) ?></div>
-        <?php endif; ?>
-
-        <form method="post" action="" autocomplete="on">
-            <label for="name">Nombre completo</label>
-            <input id="name" name="name" type="text" required value="<?= e($name) ?>" placeholder="José María">
-
-            <label for="email">Email</label>
-            <input id="email" name="email" type="email" required value="<?= e($email) ?>" placeholder="jose@example.com">
-
-            <label for="password">Contraseña</label>
-            <input id="password" name="password" type="password" required minlength="8" placeholder="Mínimo 8 caracteres">
-
-            <button type="submit">Registrarme</button>
-        </form>
-        <p class="hint">Los datos se guardan fuera de public, en <code>data/users.sqlite</code>. La contraseña no se muestra en los errores.</p>
-    </main>
-</body>
-</html>
+require __DIR__ . '/views/register.html';
