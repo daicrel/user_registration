@@ -78,7 +78,7 @@ SQLite de la web: `data/users.sqlite`. `WebAppFactory` crea el directorio `data/
 | `public/css/` | Layout, formulario, correo simulado y listado. |
 | `public/js/register.js` | Scroll al correo simulado, foco en errores y botón «Registrando…» al enviar el alta. |
 
-Tras un POST correcto de alta o reenvío, `WebApp` copia `lastEmail()` a la sesión y redirige. La GET siguiente lee ese flash; no consulta de nuevo el adaptador de correo.
+Tras un POST **correcto** de alta o reenvío, `WebApp` copia `lastEmail()` a la sesión y redirige. La GET siguiente pinta el correo desde ese flash. Si el reenvío lanza `WelcomeEmailFailed`, no hay redirección ni preview: el listado muestra *No se pudo simular el correo de bienvenida.*
 
 ## Demo por consola
 
@@ -106,23 +106,26 @@ php vendor/bin/phpunit
 
 `phpunit.xml.dist` arranca `vendor/autoload.php` y ejecuta `tests/`.
 
-Ejecución de esta auditoría: PHPUnit 10.5.62, **35 tests, 132 assertions**, código de salida 0.
+Ejecución verificada: PHPUnit 10.5.62, **39 tests, 170 assertions**, código de salida 0.
 
 | Qué | Dónde |
 | --- | --- |
 | Alta, hash, UUID, email normalizado, correo simulado | `RegisterUserTest` |
 | Duplicado (mismo email y distinto casing) | `RegisterUserTest` |
-| `UNIQUE` SQLite sin pasar por `findByEmail`; índice `users_email_unique` | `RegisterUserTest` |
+| Índice único SQLite sin pasar por `findByEmail`; `users_email_unique` | `RegisterUserTest` |
 | `save` antes de `send`; usuario conservado si `send` lanza; aviso web si no hay preview | `RegisterUserTest`, `WebAppTest` |
-| PRG: correo en flash, fake nuevo vacío, flash de un solo uso | `WebAppTest` |
-| Reenvío a id existente; rechazo si no existe | `RegisterUserTest`, `WebAppTest` |
+| PRG del alta (`testPrgWelcomeEmailComesFromSessionAfterNewAppInstance`) | `WebAppTest` (detalle abajo) |
+| Reenvío correcto (datos persistidos, no el POST) | `RegisterUserTest`, `WebAppTest` |
+| Reenvío: id inexistente; `send` falla → `WelcomeEmailFailed`, usuario intacto, mensaje fijo | `RegisterUserTest`, `WebAppTest` |
 | Borrado y liberación del email | `RegisterUserTest`, `WebAppTest` |
 | Listado sin hash | `RegisterUserTest` |
 | POST de registro sin CSRF no crea usuario | `WebAppTest` |
 | Escape HTML en el listado | `WebAppTest` |
 | El caso de uso no nombra PDO ni `FakeWelcomeEmailSender` | `RegisterUserTest` (inspección de fuente) |
 
-No hay una prueba HTTP que reconstruya `WebAppFactory` entre POST y GET. El reenvío y el borrado comparten el mismo `CsrfToken::isValid` que el alta; no hay tests HTTP aparte para esos dos POST sin token.
+`testPrgWelcomeEmailComesFromSessionAfterNewAppInstance` no llama a `WebAppFactory`. Hace un POST de registro con CSRF, comprueba que el usuario quedó guardado y que `$_SESSION['welcome_email']` tiene el destinatario, crea un `FakeWelcomeEmailSender` **nuevo** (sin correos) y un `WebApp` nuevo, simula un GET y comprueba que `welcomeEmail` sale de la sesión (para y nombre correctos) mientras `lastEmail()` del fake nuevo sigue siendo `null`, y que un GET posterior ya no trae `welcomeEmail` (el flash se consumió).
+
+El reenvío y el borrado usan el mismo `CsrfToken::isValid` que el alta; no hay tests HTTP dedicados a POST `resend`/`delete` sin token.
 
 ## Estructura del proyecto
 
@@ -218,7 +221,7 @@ Método público en todos: `execute(...)`.
 | --- | --- |
 | `RegisterUser` | `UuidGenerator::v4()`, `User::register`, `findByEmail`, `save`, luego `WelcomeEmailSender::send`. Si `send` lanza, el usuario ya está guardado. La web lo detecta porque `lastEmail()` queda vacío. |
 | `ListUsers` | Arrays con `id`, `name` y `email`. |
-| `ResendWelcomeEmail` | `findById` y `send`. Si `send` lanza, `WelcomeEmailFailed`; el usuario no se toca. |
+| `ResendWelcomeEmail` | `findById` y `send`. Si `send` lanza, captura el `Throwable` y lanza `WelcomeEmailFailed` (mensaje fijo; el original va en `getPrevious()`). No borra ni altera al usuario. |
 | `DeleteUser` | `findById` y `deleteById`. |
 
 La web usa los cuatro. La demo solo `RegisterUser`.
@@ -229,7 +232,7 @@ Coordina transporte. No valida email, no hashea, no habla SQL.
 
 | Tipo | Papel |
 | --- | --- |
-| `WebApp` | GET/POST, CSRF, casos de uso, flash, redirección o `View`. |
+| `WebApp` | GET/POST, CSRF, casos de uso, flash, redirección o `View`. En reenvío, captura `WelcomeEmailFailed` y muestra el error en el listado. |
 | `View` | `extract` + `require` de `public/views/`. |
 | `CsrfToken` | Token en `$_SESSION['_csrf_token']`; `hash_equals`. |
 | `SessionFlash` | `set` / `pull` (un solo uso). Claves: `success`, `welcome_email`, `notice`. |
@@ -270,15 +273,13 @@ Otro correo (SMTP u otro) implementaría `WelcomeEmailSender` y se inyectaría e
 
 ### Correo simulado y PRG
 
-Cada petición HTTP llama a `WebAppFactory::create()`, que hace `new FakeWelcomeEmailSender()`. El adaptador **no** conserva correos entre peticiones.
+En la web, cada petición llama a `WebAppFactory::create()` y obtiene un `FakeWelcomeEmailSender` nuevo. El adaptador **no** guarda correos entre peticiones.
 
-Flujo real de un alta o un reenvío correctos:
+Alta o reenvío **correctos:** POST ejecuta `send()`, `WebApp` copia `lastEmail()` a `$_SESSION['welcome_email']` (más `success` o `notice`) y redirige. La GET pinta `welcome.php` con el flash. `SessionFlash::pull()` lo borra.
 
-1. POST: `send()` llena `$requested` en esa instancia.
-2. `WebApp` copia `lastEmail()` a `$_SESSION['welcome_email']` (y `success` o `notice`).
-3. Redirección.
-4. GET: nueva fábrica, fake vacío. La plantilla `welcome.php` se pinta con el flash, no con el adaptador.
-5. `pull()` borra el flash: un refresco posterior ya no muestra el correo.
+Reenvío **fallido:** no se redirige ni se escribe el flash del correo. El usuario permanece. El listado muestra el mensaje de `WelcomeEmailFailed`.
+
+La prueba `testPrgWelcomeEmailComesFromSessionAfterNewAppInstance` cubre solo el PRG del **alta**: POST `register`, sesión con `welcome_email`, `WebApp` nuevo con fake vacío, GET con preview, segundo GET sin preview. No ejercita `WebAppFactory` ni el PRG del reenvío.
 
 En CLI no hay PRG: `demo.php` lee el fake en el mismo proceso.
 
@@ -310,5 +311,5 @@ Decisiones de esta prueba técnica:
 
 - Sin SMTP y sin envío real.
 - SQLite local (archivo o memoria), sin credenciales externas.
-- El fake de correo vive solo en la petición actual; la vista de bienvenida en la web depende del flash de sesión. Si `send` falla, el usuario queda registrado y se muestra un aviso, no el correo simulado.
+- El fake de correo vive solo en la petición actual; la vista de bienvenida en la web depende del flash de sesión. Si `send` falla en el alta, el usuario queda registrado y se avisa sin preview. Si falla en el reenvío, `WelcomeEmailFailed` y el listado muestra el error; el usuario no cambia.
 - No hay autenticación de administradores ni HTTPS configurado en el proyecto.
