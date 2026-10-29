@@ -31,7 +31,7 @@ final class User
             throw new InvalidUserData('El nombre es obligatorio.');
         }
 
-        if (strlen($plainPassword) < 8) {
+        if (mb_strlen($plainPassword) < 8) {
             throw new InvalidUserData('La contraseña debe tener al menos 8 caracteres.');
         }
 

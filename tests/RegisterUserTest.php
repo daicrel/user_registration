@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests;
 
 use App\Application\RegisterUser;
+use App\Contracts\WelcomeEmailSender;
 use App\Domain\EmailAlreadyRegistered;
 use App\Domain\InvalidUserData;
 use App\Domain\User;
@@ -111,7 +112,7 @@ final class RegisterUserTest extends TestCase
             $this->assertStringNotContainsString('sql', strtolower($e->getMessage()));
             $this->assertStringNotContainsString('sqlite', strtolower($e->getMessage()));
             $this->assertStringNotContainsString('password_hash', $e->getMessage());
-            $this->assertNull($e->getPrevious());
+            $this->assertInstanceOf(\PDOException::class, $e->getPrevious());
             $this->assertSame([], $emails->requested());
         }
     }
@@ -120,7 +121,7 @@ final class RegisterUserTest extends TestCase
     {
         $schemaSql = (string) $this->pdo->query("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users'")->fetchColumn();
 
-        $this->assertStringContainsString('EMAIL TEXT NOT NULL UNIQUE', strtoupper($schemaSql));
+        $this->assertStringContainsString('EMAIL TEXT NOT NULL COLLATE NOCASE UNIQUE', strtoupper($schemaSql));
         $this->assertStringContainsString('ID CHAR(36)', strtoupper($schemaSql));
     }
 
@@ -241,5 +242,54 @@ final class RegisterUserTest extends TestCase
             $this->assertSame(1, $count);
             $this->assertStringNotContainsString('S3gura!#@$', $e->getMessage());
         }
+    }
+
+    public function testKeepsUserIfWelcomeEmailFails(): void
+    {
+        $mailer = new class implements WelcomeEmailSender {
+            public function send(User $user): void
+            {
+                throw new \RuntimeException('SMTP caido');
+            }
+        };
+        $register = new RegisterUser($this->users, $mailer);
+
+        $user = $register->execute('Ana', 'ana@example.com', 'secret123');
+
+        $this->assertSame('ana@example.com', $user->email());
+        $this->assertNotNull($this->users->findByEmail('ana@example.com'));
+    }
+
+    public function testUniqueConstraintIsCaseInsensitiveEvenIfDomainIsBypassed(): void
+    {
+        $first = User::fromPersistence(Uuid::v4(), 'Uno', 'Race@Example.com', 'hash-a');
+        $second = User::fromPersistence(Uuid::v4(), 'Dos', 'race@example.com', 'hash-b');
+        $this->users->save($first);
+
+        $this->expectException(EmailAlreadyRegistered::class);
+        $this->users->save($second);
+    }
+
+    public function testPasswordLengthUsesCharactersNotBytes(): void
+    {
+        $this->expectException(InvalidUserData::class);
+        User::register(Uuid::v4(), 'Pepe', 'pepe@example.com', 'ááááááá');
+    }
+
+    public function testUniqueViolationWithGenericDuplicateMessageMapsToEmailAlreadyRegistered(): void
+    {
+        $pdo = $this->createMock(PDO::class);
+        $statement = $this->createMock(\PDOStatement::class);
+        $pdo->method('prepare')->willReturn($statement);
+        $statement->method('execute')->willThrowException(new \PDOException(
+            'SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry',
+            23000
+        ));
+
+        $repository = new PdoUserRepository($pdo);
+        $user = User::register(Uuid::v4(), 'Ana', 'ana@example.com', 'secret123');
+
+        $this->expectException(EmailAlreadyRegistered::class);
+        $repository->save($user);
     }
 }

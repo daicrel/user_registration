@@ -9,6 +9,7 @@ use App\Contracts\WelcomeEmailSender;
 use App\Domain\EmailAlreadyRegistered;
 use App\Domain\User;
 use App\Support\Uuid;
+use Throwable;
 
 final class RegisterUser
 {
@@ -26,10 +27,13 @@ final class RegisterUser
             throw new EmailAlreadyRegistered($user->email());
         }
 
-        // La comprobación anterior no cubre dos peticiones a la vez.
-        // save() debe chocar con UNIQUE y traducir el conflicto.
         $this->users->save($user);
-        $this->welcomeEmailSender->send($user);
+
+        try {
+            $this->welcomeEmailSender->send($user);
+        } catch (Throwable) {
+            // El usuario ya está persistido. El correo se puede reintentar fuera de este caso de uso.
+        }
 
         return $user;
     }

@@ -27,7 +27,7 @@ final class PdoUserRepository implements UserRepository
             'CREATE TABLE IF NOT EXISTS users (
                 id CHAR(36) NOT NULL PRIMARY KEY,
                 name TEXT NOT NULL,
-                email TEXT NOT NULL UNIQUE,
+                email TEXT NOT NULL COLLATE NOCASE UNIQUE,
                 password_hash TEXT NOT NULL
             )'
         );
@@ -52,7 +52,7 @@ final class PdoUserRepository implements UserRepository
                 throw new EmailAlreadyRegistered($user->email());
             }
 
-            throw new UserPersistenceFailed();
+            throw new UserPersistenceFailed($e);
         }
     }
 
@@ -71,8 +71,8 @@ final class PdoUserRepository implements UserRepository
             ]);
 
             $row = $statement->fetch(PDO::FETCH_ASSOC);
-        } catch (PDOException) {
-            throw new UserPersistenceFailed();
+        } catch (PDOException $e) {
+            throw new UserPersistenceFailed($e);
         }
 
         if ($row === false) {
@@ -90,12 +90,18 @@ final class PdoUserRepository implements UserRepository
     private static function isUniqueEmailViolation(PDOException $e): bool
     {
         $sqlState = (string) ($e->errorInfo[0] ?? $e->getCode());
-        $message = $e->getMessage();
+        if ($sqlState !== '23000') {
+            return false;
+        }
 
-        return $sqlState === '23000'
-            && (
-                str_contains($message, 'UNIQUE constraint failed: users.email')
-                || str_contains($message, 'Duplicate entry')
-            );
+        $message = strtolower($e->getMessage());
+
+        if (str_contains($message, 'users.id') || str_contains($message, 'primary key')) {
+            return false;
+        }
+
+        return str_contains($message, 'users.email')
+            || str_contains($message, 'duplicate entry')
+            || (str_contains($message, 'unique') && str_contains($message, 'email'));
     }
 }

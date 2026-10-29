@@ -5,7 +5,7 @@ Módulo de registro en PHP, organizado para que el dominio no dependa de persist
 ## Requisitos
 
 - PHP 8.1 o superior
-- Extensiones `pdo` y `pdo_sqlite`
+- Extensiones `pdo`, `pdo_sqlite` y `mbstring`
 - [Composer](https://getcomposer.org/)
 
 Comprueba PHP:
@@ -90,6 +90,6 @@ En Windows también vale `php vendor/bin/phpunit`. Debe terminar con código de 
 
 1. **Email único de verdad.** Hay un `findByEmail` en PHP para fallar pronto, y además `UNIQUE` en la columna `email`. Si dos peticiones pasan a la vez la comprobación, el `INSERT` choca y se traduce a `EmailAlreadyRegistered`.
 2. **UUID v4.** Se genera con `random_bytes`, versión 4 y variante RFC 4122. No se usa `uniqid()`. El id se guarda en `CHAR(36)`.
-3. **Guardar y después solicitar el correo.** Si `save` falla, no se llama a `send`. Así no hay bienvenida a un registro que no existe.
+3. **Guardar y después solicitar el correo.** Si `save` falla, no se llama a `send`. Si `send` falla, el usuario **sigue guardado** y el caso de uso no finge que el registro no existió; el correo se puede reintentar.
 4. **El caso de uso depende de interfaces.** `RegisterUser` recibe `UserRepository` y `WelcomeEmailSender` por constructor. No instancia `PdoUserRepository` ni `FakeWelcomeEmailSender`.
 5. **El adapter falso no entrega correo.** Solo registra que se *solicitó un envío simulado*. No hay SMTP y no implica que el mensaje haya llegado a una bandeja.
