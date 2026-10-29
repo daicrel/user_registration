@@ -5,6 +5,7 @@ declare(strict_types=1);
 require __DIR__ . '/vendor/autoload.php';
 
 use App\Application\RegisterUser;
+use App\Infrastructure\PhpUuidGenerator;
 use App\Domain\Email;
 use App\Domain\EmailAlreadyRegistered;
 use App\Domain\InvalidUserData;
@@ -17,7 +18,7 @@ PdoUserRepository::createSqliteSchema($pdo);
 
 $users = new PdoUserRepository($pdo);
 $emails = new FakeWelcomeEmailSender();
-$register = new RegisterUser($users, $emails);
+$register = new RegisterUser($users, $emails, new PhpUuidGenerator());
 
 function leer(string $etiqueta): string
 {

@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace App\Infrastructure;
 
+use App\Contracts\WelcomeEmailPreview;
 use App\Contracts\WelcomeEmailSender;
 use App\Domain\User;
 
-final class FakeWelcomeEmailSender implements WelcomeEmailSender
+final class FakeWelcomeEmailSender implements WelcomeEmailSender, WelcomeEmailPreview
 {
     public const SUBJECT = '¡Bienvenido a nuestra plataforma!';
     public const DISCLAIMER = 'Simulación local: este mensaje no se ha enviado por correo electrónico.';

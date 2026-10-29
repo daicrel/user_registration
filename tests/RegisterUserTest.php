@@ -7,6 +7,7 @@ namespace Tests;
 use App\Application\DeleteUser;
 use App\Application\RegisterUser;
 use App\Application\ResendWelcomeEmail;
+use App\Contracts\UuidGenerator;
 use App\Contracts\WelcomeEmailSender;
 use App\Domain\EmailAlreadyRegistered;
 use App\Domain\InvalidUserData;
@@ -14,6 +15,7 @@ use App\Domain\User;
 use App\Domain\UserPersistenceFailed;
 use App\Infrastructure\FakeWelcomeEmailSender;
 use App\Infrastructure\PdoUserRepository;
+use App\Infrastructure\PhpUuidGenerator;
 use App\Support\Uuid;
 use PDO;
 use PHPUnit\Framework\TestCase;
@@ -31,7 +33,7 @@ final class RegisterUserTest extends TestCase
         PdoUserRepository::createSqliteSchema($this->pdo);
         $this->users = new PdoUserRepository($this->pdo);
         $this->emails = new FakeWelcomeEmailSender();
-        $this->register = new RegisterUser($this->users, $this->emails);
+        $this->register = new RegisterUser($this->users, $this->emails, new PhpUuidGenerator());
     }
 
     public function testRegistersUserWithHashedPasswordUuidAndSimulatedWelcomeEmail(): void
@@ -104,7 +106,7 @@ final class RegisterUserTest extends TestCase
         $pdo = new PDO('sqlite::memory:');
         $pdo->exec('CREATE TABLE users (id TEXT)');
         $emails = new FakeWelcomeEmailSender();
-        $register = new RegisterUser(new PdoUserRepository($pdo), $emails);
+        $register = new RegisterUser(new PdoUserRepository($pdo), $emails, new PhpUuidGenerator());
 
         try {
             $register->execute('Nora', 'nora@example.com', 'secret123');
@@ -167,12 +169,39 @@ final class RegisterUserTest extends TestCase
         $this->assertTrue(Uuid::isValid((string) $row['id']));
     }
 
+    public function testUsesInjectedUuidGenerator(): void
+    {
+        $uuids = new class implements UuidGenerator {
+            public function v4(): string
+            {
+                return '11111111-1111-4111-8111-111111111111';
+            }
+        };
+
+        $register = new RegisterUser($this->users, $this->emails, $uuids);
+        $user = $register->execute('Ana Pérez', 'ana@example.com', 'secret123');
+
+        $this->assertSame('11111111-1111-4111-8111-111111111111', $user->id());
+    }
+
     public function testUseCaseDependsOnAbstractionsNotAdapters(): void
     {
         $useCaseSource = (string) file_get_contents(dirname(__DIR__) . '/src/Application/RegisterUser.php');
 
         $this->assertStringNotContainsString('FakeWelcomeEmailSender', $useCaseSource);
         $this->assertStringNotContainsString('PDO', $useCaseSource);
+        $this->assertStringNotContainsString('Uuid::', $useCaseSource);
+        $this->assertStringNotContainsString('PhpUuidGenerator', $useCaseSource);
+
+        $webSource = (string) file_get_contents(dirname(__DIR__) . '/src/Http/WebApp.php');
+        $this->assertStringNotContainsString('PDO', $webSource);
+        $this->assertStringNotContainsString('FakeWelcomeEmailSender', $webSource);
+        $this->assertStringNotContainsString('PdoUserRepository', $webSource);
+        $this->assertStringNotContainsString('sqlite', $webSource);
+
+        $frontSource = (string) file_get_contents(dirname(__DIR__) . '/public/index.php');
+        $this->assertStringNotContainsString('PDO', $frontSource);
+        $this->assertStringNotContainsString('new RegisterUser', $frontSource);
     }
 
     public function testFakeAdapterDoesNotClaimRealDelivery(): void
@@ -258,7 +287,7 @@ final class RegisterUserTest extends TestCase
                 throw new \RuntimeException('SMTP caido');
             }
         };
-        $register = new RegisterUser($this->users, $mailer);
+        $register = new RegisterUser($this->users, $mailer, new PhpUuidGenerator());
 
         $user = $register->execute('Ana', 'ana@example.com', 'secret123');
 

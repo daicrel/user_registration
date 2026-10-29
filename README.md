@@ -42,15 +42,16 @@ El caso de uso no instancia PDO ni el adapter falso. Recibe las dependencias por
 ```php
 $register = new RegisterUser(
     new PdoUserRepository($pdo),
-    new FakeWelcomeEmailSender()
+    new FakeWelcomeEmailSender(),
+    new PhpUuidGenerator()
 );
 ```
 
-Los adapters se sustituyen en el cableado, no en el caso de uso. Estos dos montajes ya existen en el proyecto:
+Los adapters se sustituyen en el cableado (`WebAppFactory`), no en el caso de uso. Estos dos montajes ya existen en el proyecto:
 
 ```php
-new RegisterUser(new InMemoryUserRepository(), new FakeWelcomeEmailSender());
-new RegisterUser(new PdoUserRepository($pdo), new FakeWelcomeEmailSender());
+new RegisterUser(new InMemoryUserRepository(), new FakeWelcomeEmailSender(), new PhpUuidGenerator());
+new RegisterUser(new PdoUserRepository($pdo), new FakeWelcomeEmailSender(), new PhpUuidGenerator());
 ```
 
 Para SMTP, añadirías otra clase que implemente `WelcomeEmailSender` y la pasarías en el constructor. `RegisterUser` no cambia.
@@ -63,7 +64,7 @@ En la carpeta del proyecto:
 php -S 127.0.0.1:8080 -t public
 ```
 
-Abre [http://127.0.0.1:8080](http://127.0.0.1:8080). El `-t public` es obligatorio: si omites eso, PHP busca `index.php` en la raíz del proyecto y puede responder `Not Found`. El formulario está en `public/index.php`. Los usuarios se guardan en `data/users.sqlite`, fuera de `public`.
+Abre [http://127.0.0.1:8080](http://127.0.0.1:8080). El `-t public` es obligatorio: si omites eso, PHP busca `index.php` en la raíz del proyecto y puede responder `Not Found`. `public/index.php` solo arranca la aplicación. El formulario está en `public/views/`. Los usuarios se guardan en `data/users.sqlite`, fuera de `public`.
 
 ## Cómo ejecutar
 
@@ -94,8 +95,9 @@ En Windows también vale `php vendor/bin/phpunit`. Debe terminar con código de 
 | --- | --- |
 | `Domain` | Qué es un usuario válido: nombre, email, contraseña hasheada e identidad. |
 | `Application` | Orquesta el caso de uso. Depende de interfaces, no de PDO ni de SMTP. |
-| `Contracts` | `UserRepository` y `WelcomeEmailSender`. |
-| `Infrastructure` | Adapters concretos (PDO, memoria, correo falso). |
+| `Contracts` | `UserRepository`, `WelcomeEmailSender`, `WelcomeEmailPreview` y `UuidGenerator`. |
+| `Http` | Controlador web: rutas, sesión y vistas. No conoce PDO. |
+| `Infrastructure` | Adapters concretos (PDO, memoria, correo falso, UUID) y `WebAppFactory`. |
 | `Support` | Generación de UUID v4. |
 
 ## Garantías (y lo que no afirma)
@@ -103,5 +105,5 @@ En Windows también vale `php vendor/bin/phpunit`. Debe terminar con código de 
 1. **Email único de verdad.** Hay un `findByEmail` en PHP para fallar pronto, y además `UNIQUE` en la columna `email`. Si dos peticiones pasan a la vez la comprobación, el `INSERT` choca y se traduce a `EmailAlreadyRegistered`.
 2. **UUID v4.** Se genera con `random_bytes`, versión 4 y variante RFC 4122. No se usa `uniqid()`. El id se guarda en `CHAR(36)`.
 3. **Guardar y después solicitar el correo.** Si `save` falla, no se llama a `send`. Si `send` falla, el usuario **sigue guardado** y el caso de uso no finge que el registro no existió; el correo se puede reintentar.
-4. **El caso de uso depende de interfaces.** `RegisterUser` recibe `UserRepository` y `WelcomeEmailSender` por constructor. No instancia `PdoUserRepository` ni `FakeWelcomeEmailSender`.
+4. **El caso de uso depende de interfaces.** `RegisterUser` recibe `UserRepository`, `WelcomeEmailSender` y `UuidGenerator` por constructor. No instancia `PdoUserRepository`, `FakeWelcomeEmailSender` ni genera UUID por su cuenta. La web (`Http\WebApp`) no conoce PDO: el cableado está en `WebAppFactory`.
 5. **El adapter falso no entrega correo.** `WelcomeEmailSender` es el puerto; `FakeWelcomeEmailSender` muestra para, asunto y cuerpo. No hay SMTP. El registro del usuario y la simulación del correo están separados: primero se persiste, después se pide el envío simulado.
