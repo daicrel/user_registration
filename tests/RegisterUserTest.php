@@ -63,6 +63,7 @@ final class RegisterUserTest extends TestCase
         $this->register->execute('Ana Pérez', 'ana@example.com', 'secret123');
 
         $this->expectException(EmailAlreadyRegistered::class);
+        $this->expectExceptionMessage('Este correo electrónico ya está registrado.');
         $this->register->execute('Otra Ana', 'ana@example.com', 'secret123');
     }
 
@@ -366,7 +367,9 @@ final class RegisterUserTest extends TestCase
         } catch (EmailAlreadyRegistered $e) {
             $count = (int) $this->pdo->query("SELECT COUNT(*) FROM users WHERE email = 'carrera@example.com'")->fetchColumn();
             $this->assertSame(1, $count);
+            $this->assertSame('Este correo electrónico ya está registrado.', $e->getMessage());
             $this->assertStringNotContainsString('S3gura!#@$', $e->getMessage());
+            $this->assertStringNotContainsString('OtraClave!1', $e->getMessage());
         }
     }
 
@@ -507,6 +510,59 @@ final class RegisterUserTest extends TestCase
         $this->assertCount(1, $this->users->all());
     }
 
+    public function testFileSqliteKeepsUserAfterNewRepositoryInstance(): void
+    {
+        $root = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'user_reg_pdo_' . bin2hex(random_bytes(8));
+
+        try {
+            $first = PdoUserRepository::fromProjectSqlite($root);
+            $register = new RegisterUser($first, new FakeWelcomeEmailSender(), new PhpUuidGenerator());
+            $register->execute('Ana Pérez', 'persistente@example.com', 'secret123');
+
+            $second = PdoUserRepository::fromProjectSqlite($root);
+            $found = $second->findByEmail('persistente@example.com');
+
+            $this->assertNotNull($found);
+            $this->assertSame('Ana Pérez', $found->name());
+            $this->assertSame('persistente@example.com', $found->email());
+            $this->assertTrue($found->verifyPassword('secret123'));
+            $this->assertNotSame('secret123', $found->passwordHash());
+            $this->assertNotFalse(password_get_info($found->passwordHash())['algo']);
+            unset($register, $first, $second, $found);
+        } finally {
+            gc_collect_cycles();
+            $this->removeDirectory($root);
+        }
+    }
+
+    public function testFileSqliteUniqueIndexRejectsDuplicateEmail(): void
+    {
+        $root = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'user_reg_uniq_' . bin2hex(random_bytes(8));
+
+        try {
+            $users = PdoUserRepository::fromProjectSqlite($root);
+            $users->save(User::register(Uuid::v4(), 'Uno', 'unico.archivo@example.com', 'secret123'));
+
+            try {
+                $users->save(User::register(Uuid::v4(), 'Dos', 'UNICO.ARCHIVO@example.com', 'otraClave9'));
+                $this->fail('UNIQUE debería evitar el segundo registro');
+            } catch (EmailAlreadyRegistered $e) {
+                $this->assertSame('Este correo electrónico ya está registrado.', $e->getMessage());
+                $this->assertStringNotContainsString('secret123', $e->getMessage());
+                $this->assertCount(1, $users->all());
+            }
+
+            unset($users);
+            $reopened = PdoUserRepository::fromProjectSqlite($root);
+            $this->assertCount(1, $reopened->all());
+            $this->assertNotNull($reopened->findByEmail('unico.archivo@example.com'));
+            unset($reopened);
+        } finally {
+            gc_collect_cycles();
+            $this->removeDirectory($root);
+        }
+    }
+
     public function testDeleteRejectsUnknownUser(): void
     {
         $delete = new DeleteUser($this->users);
@@ -533,5 +589,36 @@ final class RegisterUserTest extends TestCase
         }
 
         return false;
+    }
+
+    private function removeDirectory(string $directory): void
+    {
+        if (!is_dir($directory)) {
+            return;
+        }
+
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST
+        );
+
+        foreach ($iterator as $file) {
+            $path = $file->getPathname();
+            if ($file->isDir()) {
+                @rmdir($path);
+                continue;
+            }
+
+            for ($intento = 0; $intento < 20; $intento++) {
+                if (@unlink($path)) {
+                    break;
+                }
+
+                gc_collect_cycles();
+                usleep(25000);
+            }
+        }
+
+        @rmdir($directory);
     }
 }

@@ -24,10 +24,10 @@ if (PHP_OS_FAMILY === 'Windows' && function_exists('sapi_windows_cp_set')) {
     sapi_windows_cp_set(65001);
 }
 
-$pdo = new PDO('sqlite::memory:');
-PdoUserRepository::createSqliteSchema($pdo);
-
-$users = new PdoUserRepository($pdo);
+$raizProyecto = getenv('USER_REGISTRATION_ROOT');
+$users = PdoUserRepository::fromProjectSqlite(
+    is_string($raizProyecto) && $raizProyecto !== '' ? $raizProyecto : __DIR__
+);
 $emails = new FakeWelcomeEmailSender();
 $uuids = new PhpUuidGenerator();
 
@@ -85,12 +85,34 @@ function leerLineaStdin(): string
     return trim($linea);
 }
 
+function powershellWindows(): ?string
+{
+    $raiz = getenv('SystemRoot');
+    if (!is_string($raiz) || $raiz === '') {
+        $raiz = 'C:\\Windows';
+    }
+
+    $ruta = $raiz . '\\System32\\WindowsPowerShell\\v1.0\\powershell.exe';
+    if (!is_file($ruta)) {
+        return null;
+    }
+
+    return $ruta;
+}
+
 function leerOcultoWindows(): string
 {
+    $powershell = powershellWindows();
+    if ($powershell === null) {
+        aviso('No se encontró PowerShell. El texto puede verse al escribir la contraseña.');
+
+        return leerLineaStdin();
+    }
+
     $script = '$p = Read-Host -AsSecureString; $b = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($p); try { [Runtime.InteropServices.Marshal]::PtrToStringAuto($b) } finally { if ($b -ne [IntPtr]::Zero) { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($b) } }';
     $salida = [];
     $codigo = 1;
-    exec('powershell -NoProfile -Command ' . escapeshellarg($script), $salida, $codigo);
+    exec(escapeshellarg($powershell) . ' -NoProfile -Command ' . escapeshellarg($script), $salida, $codigo);
     echo "\n";
     if ($codigo !== 0) {
         aviso('No se pudo ocultar la contraseña. El texto puede verse al escribirla.');
@@ -98,7 +120,14 @@ function leerOcultoWindows(): string
         return leerLineaStdin();
     }
 
-    return rtrim(implode("\n", $salida), "\r\n");
+    $linea = '';
+    foreach ($salida as $fragmento) {
+        if ($fragmento !== '') {
+            $linea = $fragmento;
+        }
+    }
+
+    return rtrim($linea, "\r\n");
 }
 
 function leerOcultoUnix(): string
@@ -333,7 +362,7 @@ function registrarUsuario(
 ): bool {
     try {
         $user = $register->execute($name, $email, $password);
-        ok('Usuario persistido (UUID v4, contraseña con password_hash).');
+        ok('Usuario registrado y guardado correctamente en la base de datos.');
         echo "  ID:    {$user->id()}\n";
         echo "  Nombre: {$user->name()}\n";
         echo "  Email:  {$user->email()}\n";
@@ -350,6 +379,9 @@ function registrarUsuario(
 if ($argc >= 3) {
     $nombre = $argv[1];
     $emailArg = $argv[2];
+    if ($argc >= 4) {
+        aviso('La contraseña no se acepta como argumento (quedaría en el historial). Escríbela cuando se pida.');
+    }
     try {
         $normalizado = Email::parse($emailArg);
         if ($users->findByEmail($normalizado) !== null) {
@@ -362,8 +394,8 @@ if ($argc >= 3) {
     }
 
     $password = leerOculto('Contraseña: ');
-    registrarUsuario($register, $emails, $nombre, $emailArg, $password);
-    exit(0);
+    $ok = registrarUsuario($register, $emails, $nombre, $emailArg, $password);
+    exit($ok ? 0 : 1);
 }
 
 while (true) {

@@ -67,7 +67,7 @@ Abre [http://127.0.0.1:8080](http://127.0.0.1:8080).
 
 `-t public` deja `public/` como raíz HTTP. Sin ese flag, el `index.php` de la carpeta del proyecto reenvía a `public/index.php`, pero las URLs `/css/`, `/js/` e `/img/` no coinciden con esos archivos. El modo previsto es `-t public`.
 
-SQLite de la web: `data/users.sqlite`. `WebAppFactory` crea el directorio `data/` si no existe.
+SQLite persistente: `data/users.sqlite` (web y `demo.php`). `PdoUserRepository::fromProjectSqlite()` crea el directorio `data/` si no existe, sin borrar usuarios ya guardados.
 
 | Pieza | Papel |
 | --- | --- |
@@ -84,7 +84,9 @@ Tras un POST **correcto** de alta o reenvío, `WebApp` copia `lastEmail()` a la 
 
 `demo.php` es otra interfaz sobre los **mismos** casos de uso que la web (`RegisterUser`, `ListUsers`, `ResendWelcomeEmail`, `DeleteUser`), con `PdoUserRepository`, `FakeWelcomeEmailSender` y `PhpUuidGenerator`.
 
-Usa SQLite **en memoria** (`sqlite::memory:`), no `data/users.sqlite`, para no mezclar datos con la web. Durante la ejecución se reutiliza la misma instancia de repositorio: altas, listado, reenvío y borrado ven los mismos usuarios hasta salir.
+Usa el mismo SQLite persistente que la web (`data/users.sqlite`), a través de `PdoUserRepository::fromProjectSqlite()`. Los usuarios registrados en consola siguen existiendo al cerrar el programa y son los mismos que ve la interfaz web. El esquema se crea si falta (`CREATE TABLE/INDEX IF NOT EXISTS`); no se vacía la tabla al arrancar.
+
+Un email duplicado se rechaza con `[ERROR] Este correo electrónico ya está registrado.` (también en la web). Un alta correcta muestra `[OK] Usuario registrado y guardado correctamente en la base de datos.` No se imprimen contraseñas ni hashes.
 
 ```bash
 php demo.php
@@ -92,13 +94,13 @@ php demo.php
 
 Menú: registrar, consultar, reenviar correo simulado y eliminar (con confirmación). No muestra contraseñas ni hashes. El correo se presenta con `WelcomeEmailPreview::lastEmail()` y se indica que no hay SMTP.
 
-Registro rápido (sin menú). Argumentos: **nombre y email**. La contraseña se pide a continuación, oculta en la terminal (no va en el comando ni en el historial):
+Registro rápido (sin menú). Argumentos: **nombre y email**. La contraseña **no** va en el comando (evitaría el historial de la shell y la lista de procesos). Se pide a continuación con `leerOculto()`:
 
 ```bash
 php demo.php "Ana Pérez" "ana@example.com"
 ```
 
-Luego escribe la contraseña. No se imprime ni el hash. `RegisterUser` sigue validando los datos. Si STDIN no es una terminal (tubería), se lee la contraseña de la entrada estándar sin eco extra.
+En una terminal interactiva, Linux/macOS ocultan la entrada con `stty -echo` (comprueban el código de salida, no un retorno `null`) y restauran el eco al terminar o si hay error. En Windows se usa `Read-Host -AsSecureString` de PowerShell. Si el ocultamiento falla, hay un aviso y se lee el texto visible. Si STDIN no es una terminal (tubería), se lee la contraseña de la entrada estándar. `RegisterUser` sigue validando los datos. No se imprime la contraseña ni el hash. Un tercer argumento se ignora.
 
 ## Pruebas automatizadas
 
@@ -108,12 +110,13 @@ php vendor/bin/phpunit
 
 `phpunit.xml.dist` arranca `vendor/autoload.php` y ejecuta `tests/`.
 
-Ejecución verificada: PHPUnit 10.5.62, **39 tests, 170 assertions**, código de salida 0.
+Ejecución verificada: PHPUnit 10.5.62, **44 tests, 212 assertions**, código de salida 0.
 
 | Qué | Dónde |
 | --- | --- |
 | Alta, hash, UUID, email normalizado, correo simulado | `RegisterUserTest` |
-| Duplicado (mismo email y distinto casing) | `RegisterUserTest` |
+| Duplicado (mismo email y distinto casing) | `RegisterUserTest`, `WebAppTest`, `CliDemoTest` |
+| CLI: alta en `users.sqlite`, usuario tras nueva instancia, mensaje de éxito | `CliDemoTest` |
 | Índice único SQLite sin pasar por `findByEmail`; `users_email_unique` | `RegisterUserTest` |
 | `save` antes de `send`; usuario conservado si `send` lanza; aviso web si no hay preview | `RegisterUserTest`, `WebAppTest` |
 | PRG del alta (`testPrgWelcomeEmailComesFromSessionAfterNewAppInstance`) | `WebAppTest` (detalle abajo) |
@@ -184,6 +187,7 @@ user_registration/
 │   └── Support/
 │       └── Uuid.php
 ├── tests/
+│   ├── CliDemoTest.php
 │   ├── RegisterUserTest.php
 │   └── WebAppTest.php
 ├── data/
@@ -197,7 +201,7 @@ user_registration/
 └── README.md
 ```
 
-`/data/*.sqlite` y `vendor/` están en `.gitignore`. `data/` se crea al arrancar la web.
+`/data/*.sqlite` y `vendor/` están en `.gitignore`. `data/` se crea al arrancar la web o la demo CLI.
 
 ## Arquitectura y responsabilidades
 
@@ -271,7 +275,7 @@ Otro correo (SMTP u otro) implementaría `WelcomeEmailSender` y se inyectaría e
 | `InMemoryUserRepository` | `UserRepository` | Array cuya clave es el email normalizado. Lo usan los tests de `WebApp`. |
 | `FakeWelcomeEmailSender` | `WelcomeEmailSender` y `WelcomeEmailPreview` | Array privado `$requested`. Sin SMTP, sin archivo, sin tabla. |
 | `PhpUuidGenerator` | `UuidGenerator` | `App\Support\Uuid::v4()` (`random_bytes`). |
-| `WebAppFactory` | — | Cableado de la web. También hay `new PDO` en `demo.php` y en tests. |
+| `WebAppFactory` | — | Cableado de la web. Abre SQLite con `PdoUserRepository::fromProjectSqlite()` (igual que `demo.php`). Los tests de dominio suelen usar `sqlite::memory:`. |
 
 ### Correo simulado y PRG
 
@@ -290,7 +294,7 @@ En CLI no hay PRG: `demo.php` lee el fake en el mismo proceso.
 1. **Email único.** Normalización en PHP e índice `users_email_unique` (`COLLATE NOCASE`). El `INSERT` es la garantía si dos peticiones pasan el `findByEmail`.
 2. **Contraseñas.** `password_hash(..., PASSWORD_DEFAULT)`. Nunca texto plano.
 3. **UUID v4.** `random_bytes(16)` en `Uuid::v4()`, inyectado con `UuidGenerator`.
-4. **SQLite.** Web: `data/users.sqlite`. Demo y la mayoría de `RegisterUserTest`: memoria.
+4. **SQLite.** Web y `demo.php`: `data/users.sqlite`. La mayoría de `RegisterUserTest`: memoria. Persistencia en archivo: `CliDemoTest` y pruebas de `fromProjectSqlite()`.
 5. **Correo.** Fake local. Tras PRG, la UI usa sesión, no el adaptador.
 6. **Orden.** `save` y después `send`.
 7. **Capas.** Dominio, aplicación, contratos, infraestructura, HTTP.

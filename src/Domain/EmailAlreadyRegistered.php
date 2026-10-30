@@ -10,6 +10,6 @@ final class EmailAlreadyRegistered extends RuntimeException
 {
     public function __construct(string $email)
     {
-        parent::__construct("Ya existe un usuario con el email {$email}.");
+        parent::__construct('Este correo electrónico ya está registrado.');
     }
 }

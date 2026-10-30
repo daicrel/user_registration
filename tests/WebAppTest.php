@@ -250,6 +250,30 @@ final class WebAppTest extends TestCase
         );
     }
 
+    public function testDuplicateEmailShowsClearErrorAndDoesNotCreateSecondUser(): void
+    {
+        $this->registerStoredUser();
+        $token = $this->app()->handle()['data']['csrfToken'];
+
+        $_SERVER['REQUEST_METHOD'] = 'POST';
+        $_POST = [
+            '_csrf' => $token,
+            'action' => 'register',
+            'name' => 'Otra Ana',
+            'email' => 'ANA@example.com',
+            'password' => 'secret123',
+        ];
+
+        $result = $this->app()->handle();
+
+        $this->assertArrayHasKey('data', $result);
+        $this->assertSame('Este correo electrónico ya está registrado.', $result['data']['error']);
+        $this->assertStringNotContainsString('secret123', (string) $result['data']['error']);
+        $this->assertStringNotContainsString('$2y$', (string) $result['data']['error']);
+        $this->assertCount(1, $this->users->all());
+        $this->assertSame('Ana Pérez', $this->users->all()[0]->name());
+    }
+
     public function testViewsEscapeDynamicHtml(): void
     {
         require_once dirname(__DIR__) . '/src/Http/html.php';

@@ -12,22 +12,12 @@ use App\Http\CsrfToken;
 use App\Http\SessionFlash;
 use App\Http\View;
 use App\Http\WebApp;
-use PDO;
-use RuntimeException;
 
 final class WebAppFactory
 {
     public static function create(string $projectRoot): WebApp
     {
-        $dataDir = $projectRoot . '/data';
-        if (!is_dir($dataDir) && !mkdir($dataDir, 0755, true) && !is_dir($dataDir)) {
-            throw new RuntimeException('No se pudo crear el directorio data.');
-        }
-
-        $pdo = new PDO('sqlite:' . $dataDir . '/users.sqlite');
-        PdoUserRepository::createSqliteSchema($pdo);
-
-        $users = new PdoUserRepository($pdo);
+        $users = PdoUserRepository::fromProjectSqlite($projectRoot);
         $emails = new FakeWelcomeEmailSender();
         $uuids = new PhpUuidGenerator();
 

@@ -11,6 +11,7 @@ use App\Domain\User;
 use App\Domain\UserPersistenceFailed;
 use PDO;
 use PDOException;
+use RuntimeException;
 
 final class PdoUserRepository implements UserRepository
 {
@@ -18,6 +19,19 @@ final class PdoUserRepository implements UserRepository
     {
         $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->pdo->setAttribute(PDO::ATTR_EMULATE_PREPARES, false);
+    }
+
+    public static function fromProjectSqlite(string $projectRoot): self
+    {
+        $dataDir = $projectRoot . DIRECTORY_SEPARATOR . 'data';
+        if (!is_dir($dataDir) && !mkdir($dataDir, 0755, true) && !is_dir($dataDir)) {
+            throw new RuntimeException('No se pudo crear el directorio data.');
+        }
+
+        $pdo = new PDO('sqlite:' . $dataDir . DIRECTORY_SEPARATOR . 'users.sqlite');
+        self::createSqliteSchema($pdo);
+
+        return new self($pdo);
     }
 
     public static function createSqliteSchema(PDO $pdo): void
