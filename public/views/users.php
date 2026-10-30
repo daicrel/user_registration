@@ -23,7 +23,13 @@
                             <input type="hidden" name="user_id" value="<?= e((string) $listedUser['id']) ?>">
                             <button class="btn btn-secondary" type="submit">Reenvío de correo</button>
                         </form>
-                        <form method="post" action="/?page=users" onsubmit="return confirm('¿Borrar este usuario?');">
+                        <form
+                            class="js-delete-user"
+                            method="post"
+                            action="/?page=users"
+                            data-name="<?= e((string) $listedUser['name']) ?>"
+                            data-email="<?= e((string) $listedUser['email']) ?>"
+                        >
                             <?php require __DIR__ . '/_csrf.php'; ?>
                             <input type="hidden" name="action" value="delete">
                             <input type="hidden" name="user_id" value="<?= e((string) $listedUser['id']) ?>">
@@ -37,3 +43,12 @@
 
     <p class="nav-link"><a href="/">Registrar otro usuario</a></p>
 </section>
+
+<dialog id="confirm-delete" class="confirm-dialog" aria-labelledby="confirm-delete-title" aria-describedby="confirm-delete-text">
+    <h2 id="confirm-delete-title">Eliminar usuario</h2>
+    <p id="confirm-delete-text"></p>
+    <div class="confirm-actions">
+        <button type="button" class="btn btn-secondary" id="confirm-delete-cancel">Cancelar</button>
+        <button type="button" class="btn btn-danger" id="confirm-delete-ok">Eliminar</button>
+    </div>
+</dialog>

@@ -78,6 +78,7 @@ SQLite persistente: `data/users.sqlite` (web y `demo.php`). `PdoUserRepository::
 | `public/views/` | `home.php` incluye `register.php`, `users.php` y `welcome.php`. CSRF en `_csrf.php`. |
 | `public/css/` | Layout, formulario, correo simulado y listado. |
 | `public/js/register.js` | Scroll al correo simulado, foco en errores, disponibilidad del email (500 ms) y botón «Registrando…» al enviar el alta. |
+| `public/js/users.js` | Diálogo propio para confirmar el borrado (sustituye `confirm()` del navegador). |
 
 Tras un POST **correcto** de alta o reenvío, `WebApp` copia `lastEmail()` a la sesión y redirige. La GET siguiente pinta el correo desde ese flash. Si el reenvío lanza `WelcomeEmailFailed`, no hay redirección ni preview: el listado muestra *No se pudo simular el correo de bienvenida.*
 
@@ -111,7 +112,7 @@ php vendor/bin/phpunit
 
 `phpunit.xml.dist` arranca `vendor/autoload.php` y ejecuta `tests/`.
 
-Ejecución verificada: PHPUnit 10.5.62, **48 tests, 223 assertions**, código de salida 0.
+Ejecución verificada: PHPUnit 10.5.62, **48 tests, 226 assertions**, código de salida 0.
 
 | Qué | Dónde |
 | --- | --- |
@@ -152,7 +153,8 @@ user_registration/
 │   │   ├── users.css
 │   │   └── welcome.css
 │   ├── js/
-│   │   └── register.js
+│   │   ├── register.js
+│   │   └── users.js
 │   └── img/
 │       └── logo.svg
 ├── src/

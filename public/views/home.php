@@ -22,5 +22,6 @@
         <?php endif; ?>
     </div>
     <script src="/js/register.js" defer></script>
+    <script src="/js/users.js" defer></script>
 </body>
 </html>

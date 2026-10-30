@@ -388,6 +388,9 @@ final class WebAppTest extends TestCase
 
         $this->assertStringNotContainsString('<script>alert(1)</script>', $html);
         $this->assertStringContainsString('&lt;script&gt;alert(1)&lt;/script&gt;', $html);
+        $this->assertStringNotContainsString("confirm(", $html);
+        $this->assertStringContainsString('id="confirm-delete"', $html);
+        $this->assertStringContainsString('data-name="&lt;script&gt;alert(1)&lt;/script&gt;"', $html);
         $this->assertStringNotContainsString('<b>error</b>', $html);
         $this->assertStringContainsString('&lt;b&gt;error&lt;/b&gt;', $html);
         $this->assertStringContainsString('name="_csrf"', $html);
