@@ -17,6 +17,7 @@ use App\Domain\UserNotFound;
 use App\Domain\UserPersistenceFailed;
 use App\Domain\WelcomeEmailFailed;
 use App\Infrastructure\FakeWelcomeEmailSender;
+use App\Infrastructure\InMemoryUserRepository;
 use App\Infrastructure\PdoUserRepository;
 use App\Infrastructure\PhpUuidGenerator;
 
@@ -353,16 +354,26 @@ function pedirEmail(UserRepository $users): ?string
     }
 }
 
+function mensajeAltaCorrecta(UserRepository $users): string
+{
+    if ($users instanceof InMemoryUserRepository) {
+        return 'Usuario registrado.';
+    }
+
+    return 'Usuario registrado y guardado correctamente en la base de datos.';
+}
+
 function registrarUsuario(
     RegisterUser $register,
     WelcomeEmailPreview $preview,
+    UserRepository $users,
     string $name,
     string $email,
     string $password
 ): bool {
     try {
         $user = $register->execute($name, $email, $password);
-        ok('Usuario registrado y guardado correctamente en la base de datos.');
+        ok(mensajeAltaCorrecta($users));
         echo "  ID:    {$user->id()}\n";
         echo "  Nombre: {$user->name()}\n";
         echo "  Email:  {$user->email()}\n";
@@ -394,7 +405,7 @@ if ($argc >= 3) {
     }
 
     $password = leerOculto('Contraseña: ');
-    $ok = registrarUsuario($register, $emails, $nombre, $emailArg, $password);
+    $ok = registrarUsuario($register, $emails, $users, $nombre, $emailArg, $password);
     exit($ok ? 0 : 1);
 }
 
@@ -413,7 +424,7 @@ while (true) {
         $email = pedirEmail($users);
         if ($email !== null) {
             $password = leerOculto('Contraseña: ');
-            registrarUsuario($register, $emails, $name, $email, $password);
+            registrarUsuario($register, $emails, $users, $name, $email, $password);
         }
         pausar();
         continue;

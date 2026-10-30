@@ -86,7 +86,7 @@ Tras un POST **correcto** de alta o reenvío, `WebApp` copia `lastEmail()` a la 
 
 Usa el mismo SQLite persistente que la web (`data/users.sqlite`), a través de `PdoUserRepository::fromProjectSqlite()`. Los usuarios registrados en consola siguen existiendo al cerrar el programa y son los mismos que ve la interfaz web. El esquema se crea si falta (`CREATE TABLE/INDEX IF NOT EXISTS`); no se vacía la tabla al arrancar.
 
-Un email duplicado se rechaza con `[ERROR] Este correo electrónico ya está registrado.` (también en la web). Un alta correcta muestra `[OK] Usuario registrado y guardado correctamente en la base de datos.` No se imprimen contraseñas ni hashes.
+Un email duplicado se rechaza con `[ERROR] Este correo electrónico ya está registrado.` (también en la web). Un alta correcta en SQLite persistente muestra `[OK] Usuario registrado y guardado correctamente en la base de datos.` Si el repositorio fuera en memoria, solo `[OK] Usuario registrado.` No se imprimen contraseñas, hashes ni detalles técnicos.
 
 ```bash
 php demo.php
