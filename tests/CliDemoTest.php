@@ -24,11 +24,11 @@ final class CliDemoTest extends TestCase
 
     public function testCliRegisterPersistsUserInSqliteFile(): void
     {
-        $run = $this->runDemo(['Juan Carlos García López', 'juan.garcia@example.com'], "Juan2026#01\n");
+        $run = $this->runDemo(['Juan Carlos García López', 'juan.garcia@example.com'], "S3gura!#@$\n");
 
         $this->assertSame(0, $run['code']);
         $this->assertStringContainsString('[OK] Usuario registrado y guardado correctamente en la base de datos.', $run['out']);
-        $this->assertStringNotContainsString('Juan2026#01', $run['out']);
+        $this->assertStringNotContainsString('S3gura!#@$', $run['out']);
         $this->assertStringNotContainsString('$2y$', $run['out']);
         $this->assertStringNotContainsString('password_hash', $run['out']);
 
@@ -36,8 +36,8 @@ final class CliDemoTest extends TestCase
         $found = $reopened->findByEmail('juan.garcia@example.com');
         $this->assertNotNull($found);
         $this->assertSame('Juan Carlos García López', $found->name());
-        $this->assertTrue($found->verifyPassword('Juan2026#01'));
-        $this->assertNotSame('Juan2026#01', $found->passwordHash());
+        $this->assertTrue($found->verifyPassword('S3gura!#@$'));
+        $this->assertNotSame('S3gura!#@$', $found->passwordHash());
         $this->assertNotFalse(password_get_info($found->passwordHash())['algo']);
         unset($reopened, $found);
         gc_collect_cycles();
@@ -45,16 +45,16 @@ final class CliDemoTest extends TestCase
 
     public function testCliRejectsDuplicateEmailWithoutFatalError(): void
     {
-        $first = $this->runDemo(['Juan Carlos García López', 'juan.garcia@example.com'], "Juan2026#01\n");
+        $first = $this->runDemo(['Juan Carlos García López', 'juan.garcia@example.com'], "S3gura!#@$\n");
         $this->assertSame(0, $first['code']);
 
-        $second = $this->runDemo(['María Elena Ruiz Soto', 'JUAN.GARCIA@example.com'], "Maria2026#01\n");
+        $second = $this->runDemo(['María Elena Ruiz Soto', 'JUAN.GARCIA@example.com'], "Cl4ve!#@$\n");
 
         $this->assertSame(1, $second['code']);
         $this->assertStringContainsString('[ERROR] Este correo electrónico ya está registrado.', $second['out']);
         $this->assertStringNotContainsString('Fatal error', $second['out'] . $second['err']);
-        $this->assertStringNotContainsString('Juan2026#01', $second['out']);
-        $this->assertStringNotContainsString('Maria2026#01', $second['out']);
+        $this->assertStringNotContainsString('S3gura!#@$', $second['out']);
+        $this->assertStringNotContainsString('Cl4ve!#@$', $second['out']);
         $this->assertStringNotContainsString('$2y$', $second['out']);
 
         $users = PdoUserRepository::fromProjectSqlite($this->root);

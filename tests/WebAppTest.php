@@ -47,7 +47,7 @@ final class WebAppTest extends TestCase
             'action' => 'register',
             'name' => 'Juan Carlos García López',
             'email' => 'juan.garcia@example.com',
-            'password' => 'Juan2026#01',
+            'password' => 'S3gura!#@$',
         ];
 
         $result = $this->app()->handle();
@@ -67,7 +67,7 @@ final class WebAppTest extends TestCase
             'action' => 'register',
             'name' => 'Juan Carlos García López',
             'email' => 'juan.garcia@example.com',
-            'password' => 'Juan2026#01',
+            'password' => 'S3gura!#@$',
         ];
 
         $result = $this->app()->handle();
@@ -178,7 +178,7 @@ final class WebAppTest extends TestCase
             'action' => 'register',
             'name' => 'Juan Carlos García López',
             'email' => 'juan.garcia@example.com',
-            'password' => 'Juan2026#01',
+            'password' => 'S3gura!#@$',
         ];
 
         $post = $this->app()->handle();
@@ -226,7 +226,7 @@ final class WebAppTest extends TestCase
             'action' => 'register',
             'name' => 'Juan Carlos García López',
             'email' => 'juan.garcia@example.com',
-            'password' => 'Juan2026#01',
+            'password' => 'S3gura!#@$',
         ];
 
         $post = $this->appWith($failingMail)->handle();
@@ -238,7 +238,7 @@ final class WebAppTest extends TestCase
             'El usuario se ha registrado, pero no se pudo simular el correo de bienvenida.',
             $_SESSION['notice'] ?? null
         );
-        $this->assertStringNotContainsString('Juan2026#01', (string) ($_SESSION['notice'] ?? ''));
+        $this->assertStringNotContainsString('S3gura!#@$', (string) ($_SESSION['notice'] ?? ''));
         $this->assertStringNotContainsString('SMTP', (string) ($_SESSION['notice'] ?? ''));
 
         $_SERVER['REQUEST_METHOD'] = 'GET';
@@ -264,14 +264,14 @@ final class WebAppTest extends TestCase
             'action' => 'register',
             'name' => 'María Elena Ruiz Soto',
             'email' => 'JUAN.GARCIA@example.com',
-            'password' => 'Juan2026#01',
+            'password' => 'S3gura!#@$',
         ];
 
         $result = $this->app()->handle();
 
         $this->assertArrayHasKey('data', $result);
         $this->assertSame('Este correo electrónico ya está registrado.', $result['data']['error']);
-        $this->assertStringNotContainsString('Juan2026#01', (string) $result['data']['error']);
+        $this->assertStringNotContainsString('S3gura!#@$', (string) $result['data']['error']);
         $this->assertStringNotContainsString('$2y$', (string) $result['data']['error']);
         $this->assertCount(1, $this->users->all());
         $this->assertSame('Juan Carlos García López', $this->users->all()[0]->name());
@@ -399,7 +399,7 @@ final class WebAppTest extends TestCase
     private function registerStoredUser(): void
     {
         $register = new RegisterUser($this->users, $this->emails, new PhpUuidGenerator());
-        $register->execute('Juan Carlos García López', 'juan.garcia@example.com', 'Juan2026#01');
+        $register->execute('Juan Carlos García López', 'juan.garcia@example.com', 'S3gura!#@$');
     }
 
     private function app(): WebApp
