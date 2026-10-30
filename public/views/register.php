@@ -35,7 +35,7 @@
             <p id="email-status" class="email-status" role="status" aria-live="polite"></p>
 
             <label for="password">Contraseña</label>
-            <input id="password" name="password" type="password" required minlength="8" placeholder="Juan2026#01">
+            <input id="password" name="password" type="password" required minlength="8" placeholder="Mínimo 8 caracteres">
 
             <button type="submit">Registrarme</button>
         </form>
