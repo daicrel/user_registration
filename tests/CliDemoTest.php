@@ -24,20 +24,20 @@ final class CliDemoTest extends TestCase
 
     public function testCliRegisterPersistsUserInSqliteFile(): void
     {
-        $run = $this->runDemo(['Ana Pérez', 'ana.cli@example.com'], "secret123\n");
+        $run = $this->runDemo(['Juan Carlos García López', 'juan.garcia@example.com'], "Juan2026#01\n");
 
         $this->assertSame(0, $run['code']);
         $this->assertStringContainsString('[OK] Usuario registrado y guardado correctamente en la base de datos.', $run['out']);
-        $this->assertStringNotContainsString('secret123', $run['out']);
+        $this->assertStringNotContainsString('Juan2026#01', $run['out']);
         $this->assertStringNotContainsString('$2y$', $run['out']);
         $this->assertStringNotContainsString('password_hash', $run['out']);
 
         $reopened = PdoUserRepository::fromProjectSqlite($this->root);
-        $found = $reopened->findByEmail('ana.cli@example.com');
+        $found = $reopened->findByEmail('juan.garcia@example.com');
         $this->assertNotNull($found);
-        $this->assertSame('Ana Pérez', $found->name());
-        $this->assertTrue($found->verifyPassword('secret123'));
-        $this->assertNotSame('secret123', $found->passwordHash());
+        $this->assertSame('Juan Carlos García López', $found->name());
+        $this->assertTrue($found->verifyPassword('Juan2026#01'));
+        $this->assertNotSame('Juan2026#01', $found->passwordHash());
         $this->assertNotFalse(password_get_info($found->passwordHash())['algo']);
         unset($reopened, $found);
         gc_collect_cycles();
@@ -45,21 +45,21 @@ final class CliDemoTest extends TestCase
 
     public function testCliRejectsDuplicateEmailWithoutFatalError(): void
     {
-        $first = $this->runDemo(['Ana Pérez', 'ana.dup@example.com'], "secret123\n");
+        $first = $this->runDemo(['Juan Carlos García López', 'juan.garcia@example.com'], "Juan2026#01\n");
         $this->assertSame(0, $first['code']);
 
-        $second = $this->runDemo(['Otra Ana', 'ANA.DUP@example.com'], "otraClave9\n");
+        $second = $this->runDemo(['María Elena Ruiz Soto', 'JUAN.GARCIA@example.com'], "Maria2026#01\n");
 
         $this->assertSame(1, $second['code']);
         $this->assertStringContainsString('[ERROR] Este correo electrónico ya está registrado.', $second['out']);
         $this->assertStringNotContainsString('Fatal error', $second['out'] . $second['err']);
-        $this->assertStringNotContainsString('secret123', $second['out']);
-        $this->assertStringNotContainsString('otraClave9', $second['out']);
+        $this->assertStringNotContainsString('Juan2026#01', $second['out']);
+        $this->assertStringNotContainsString('Maria2026#01', $second['out']);
         $this->assertStringNotContainsString('$2y$', $second['out']);
 
         $users = PdoUserRepository::fromProjectSqlite($this->root);
         $this->assertCount(1, $users->all());
-        $this->assertSame('Ana Pérez', $users->all()[0]->name());
+        $this->assertSame('Juan Carlos García López', $users->all()[0]->name());
         unset($users);
         gc_collect_cycles();
     }

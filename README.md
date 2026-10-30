@@ -99,7 +99,7 @@ Menú: registrar, consultar, reenviar correo simulado y eliminar (con confirmaci
 Registro rápido (sin menú). Argumentos: **nombre y email**. La contraseña **no** va en el comando (evitaría el historial de la shell y la lista de procesos). Se pide a continuación con `leerOculto()`:
 
 ```bash
-php demo.php "Ana Pérez" "ana@example.com"
+php demo.php "Juan Carlos García López" "juan.garcia@example.com"
 ```
 
 En una terminal interactiva, Linux/macOS ocultan la entrada con `stty -echo` (comprueban el código de salida, no un retorno `null`) y restauran el eco al terminar o si hay error. En Windows se usa `Read-Host -AsSecureString` de PowerShell. Si el ocultamiento falla, hay un aviso y se lee el texto visible. Si STDIN no es una terminal (tubería), se lee la contraseña de la entrada estándar. `RegisterUser` sigue validando los datos. No se imprime la contraseña ni el hash. Un tercer argumento se ignora.

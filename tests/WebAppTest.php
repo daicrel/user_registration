@@ -45,15 +45,15 @@ final class WebAppTest extends TestCase
         $_SERVER['REQUEST_METHOD'] = 'POST';
         $_POST = [
             'action' => 'register',
-            'name' => 'Ana Pérez',
-            'email' => 'ana@example.com',
-            'password' => 'secret123',
+            'name' => 'Juan Carlos García López',
+            'email' => 'juan.garcia@example.com',
+            'password' => 'Juan2026#01',
         ];
 
         $result = $this->app()->handle();
 
         $this->assertSame('La solicitud no es válida. Vuelve a intentarlo.', $result['data']['error']);
-        $this->assertNull($this->users->findByEmail('ana@example.com'));
+        $this->assertNull($this->users->findByEmail('juan.garcia@example.com'));
         $this->assertSame([], $this->emails->requested());
     }
 
@@ -65,21 +65,21 @@ final class WebAppTest extends TestCase
         $_POST = [
             '_csrf' => $token,
             'action' => 'register',
-            'name' => 'Ana Pérez',
-            'email' => 'ana@example.com',
-            'password' => 'secret123',
+            'name' => 'Juan Carlos García López',
+            'email' => 'juan.garcia@example.com',
+            'password' => 'Juan2026#01',
         ];
 
         $result = $this->app()->handle();
 
         $this->assertArrayHasKey('location', $result);
-        $this->assertNotNull($this->users->findByEmail('ana@example.com'));
+        $this->assertNotNull($this->users->findByEmail('juan.garcia@example.com'));
     }
 
     public function testResendUsesStoredUserNotPostedEmail(): void
     {
         $this->registerStoredUser();
-        $user = $this->users->findByEmail('ana@example.com');
+        $user = $this->users->findByEmail('juan.garcia@example.com');
         $this->assertNotNull($user);
 
         $token = $this->app()->handle()['data']['csrfToken'];
@@ -90,7 +90,7 @@ final class WebAppTest extends TestCase
             'action' => 'resend',
             'user_id' => $user->id(),
             'email' => 'atacante@evil.com',
-            'name' => 'Nombre falso',
+            'name' => 'Nombre Falso Pérez',
         ];
 
         $result = $this->app()->handle();
@@ -98,18 +98,18 @@ final class WebAppTest extends TestCase
         $this->assertSame('/?page=users#welcome-email', $result['location']);
         $last = $this->emails->lastEmail();
         $this->assertNotNull($last);
-        $this->assertSame('ana@example.com', $last['to']);
-        $this->assertSame('Ana Pérez', $last['name']);
-        $this->assertStringContainsString('Hola, Ana Pérez:', $last['body']);
+        $this->assertSame('juan.garcia@example.com', $last['to']);
+        $this->assertSame('Juan Carlos García López', $last['name']);
+        $this->assertStringContainsString('Hola, Juan Carlos García López:', $last['body']);
         $this->assertSame('Se simuló el reenvío del correo de bienvenida.', $_SESSION['notice'] ?? null);
         $this->assertIsArray($_SESSION['welcome_email'] ?? null);
-        $this->assertSame('ana@example.com', $_SESSION['welcome_email']['to']);
+        $this->assertSame('juan.garcia@example.com', $_SESSION['welcome_email']['to']);
     }
 
     public function testResendShowsSafeErrorWhenSendFailsAndKeepsUser(): void
     {
         $this->registerStoredUser();
-        $user = $this->users->findByEmail('ana@example.com');
+        $user = $this->users->findByEmail('juan.garcia@example.com');
         $this->assertNotNull($user);
 
         $failingMail = new class implements WelcomeEmailSender, WelcomeEmailPreview {
@@ -141,14 +141,14 @@ final class WebAppTest extends TestCase
         $this->assertStringNotContainsString('SMTP', (string) $result['data']['error']);
         $this->assertNull($result['data']['welcomeEmail']);
         $this->assertNotNull($this->users->findById($user->id()));
-        $this->assertSame('Ana Pérez', $this->users->findById($user->id())?->name());
-        $this->assertSame('ana@example.com', $this->users->findById($user->id())?->email());
+        $this->assertSame('Juan Carlos García López', $this->users->findById($user->id())?->name());
+        $this->assertSame('juan.garcia@example.com', $this->users->findById($user->id())?->email());
     }
 
     public function testDeleteRemovesUserAndLeavesNoRow(): void
     {
         $this->registerStoredUser();
-        $user = $this->users->findByEmail('ana@example.com');
+        $user = $this->users->findByEmail('juan.garcia@example.com');
         $this->assertNotNull($user);
 
         $token = $this->app()->handle()['data']['csrfToken'];
@@ -164,7 +164,7 @@ final class WebAppTest extends TestCase
 
         $this->assertSame('/?page=users', $result['location']);
         $this->assertNull($this->users->findById($user->id()));
-        $this->assertNull($this->users->findByEmail('ana@example.com'));
+        $this->assertNull($this->users->findByEmail('juan.garcia@example.com'));
         $this->assertSame([], $this->users->all());
     }
 
@@ -176,17 +176,17 @@ final class WebAppTest extends TestCase
         $_POST = [
             '_csrf' => $token,
             'action' => 'register',
-            'name' => 'Ana Pérez',
-            'email' => 'ana@example.com',
-            'password' => 'secret123',
+            'name' => 'Juan Carlos García López',
+            'email' => 'juan.garcia@example.com',
+            'password' => 'Juan2026#01',
         ];
 
         $post = $this->app()->handle();
 
         $this->assertArrayHasKey('location', $post);
-        $this->assertNotNull($this->users->findByEmail('ana@example.com'));
+        $this->assertNotNull($this->users->findByEmail('juan.garcia@example.com'));
         $this->assertIsArray($_SESSION['welcome_email'] ?? null);
-        $this->assertSame('ana@example.com', $_SESSION['welcome_email']['to']);
+        $this->assertSame('juan.garcia@example.com', $_SESSION['welcome_email']['to']);
 
         $freshEmails = new FakeWelcomeEmailSender();
         $this->assertNull($freshEmails->lastEmail());
@@ -198,8 +198,8 @@ final class WebAppTest extends TestCase
 
         $this->assertNull($freshEmails->lastEmail());
         $this->assertIsArray($get['data']['welcomeEmail']);
-        $this->assertSame('ana@example.com', $get['data']['welcomeEmail']['to']);
-        $this->assertSame('Ana Pérez', $get['data']['welcomeEmail']['name']);
+        $this->assertSame('juan.garcia@example.com', $get['data']['welcomeEmail']['to']);
+        $this->assertSame('Juan Carlos García López', $get['data']['welcomeEmail']['name']);
 
         $again = $this->appWith(new FakeWelcomeEmailSender())->handle();
         $this->assertNull($again['data']['welcomeEmail']);
@@ -224,21 +224,21 @@ final class WebAppTest extends TestCase
         $_POST = [
             '_csrf' => $token,
             'action' => 'register',
-            'name' => 'Ana Pérez',
-            'email' => 'ana@example.com',
-            'password' => 'secret123',
+            'name' => 'Juan Carlos García López',
+            'email' => 'juan.garcia@example.com',
+            'password' => 'Juan2026#01',
         ];
 
         $post = $this->appWith($failingMail)->handle();
 
         $this->assertArrayHasKey('location', $post);
-        $this->assertNotNull($this->users->findByEmail('ana@example.com'));
+        $this->assertNotNull($this->users->findByEmail('juan.garcia@example.com'));
         $this->assertArrayNotHasKey('welcome_email', $_SESSION);
         $this->assertSame(
             'El usuario se ha registrado, pero no se pudo simular el correo de bienvenida.',
             $_SESSION['notice'] ?? null
         );
-        $this->assertStringNotContainsString('secret123', (string) ($_SESSION['notice'] ?? ''));
+        $this->assertStringNotContainsString('Juan2026#01', (string) ($_SESSION['notice'] ?? ''));
         $this->assertStringNotContainsString('SMTP', (string) ($_SESSION['notice'] ?? ''));
 
         $_SERVER['REQUEST_METHOD'] = 'GET';
@@ -262,25 +262,25 @@ final class WebAppTest extends TestCase
         $_POST = [
             '_csrf' => $token,
             'action' => 'register',
-            'name' => 'Otra Ana',
-            'email' => 'ANA@example.com',
-            'password' => 'secret123',
+            'name' => 'María Elena Ruiz Soto',
+            'email' => 'JUAN.GARCIA@example.com',
+            'password' => 'Juan2026#01',
         ];
 
         $result = $this->app()->handle();
 
         $this->assertArrayHasKey('data', $result);
         $this->assertSame('Este correo electrónico ya está registrado.', $result['data']['error']);
-        $this->assertStringNotContainsString('secret123', (string) $result['data']['error']);
+        $this->assertStringNotContainsString('Juan2026#01', (string) $result['data']['error']);
         $this->assertStringNotContainsString('$2y$', (string) $result['data']['error']);
         $this->assertCount(1, $this->users->all());
-        $this->assertSame('Ana Pérez', $this->users->all()[0]->name());
+        $this->assertSame('Juan Carlos García López', $this->users->all()[0]->name());
     }
 
     public function testCheckEmailEndpointReportsAvailableAddress(): void
     {
         $_GET['action'] = 'check-email';
-        $_GET['email'] = '  Libre@Example.com  ';
+        $_GET['email'] = '  Pedro.Santos@Example.com  ';
 
         $result = $this->app()->handle();
 
@@ -292,7 +292,7 @@ final class WebAppTest extends TestCase
     {
         $this->registerStoredUser();
         $_GET['action'] = 'check-email';
-        $_GET['email'] = '  ANA@EXAMPLE.COM  ';
+        $_GET['email'] = '  JUAN.GARCIA@EXAMPLE.COM  ';
 
         $result = $this->app()->handle();
 
@@ -354,7 +354,7 @@ final class WebAppTest extends TestCase
         );
 
         $_GET['action'] = 'check-email';
-        $_GET['email'] = 'ana@example.com';
+        $_GET['email'] = 'juan.garcia@example.com';
         $result = $app->handle();
 
         $this->assertFalse($result['json']['ok']);
@@ -399,7 +399,7 @@ final class WebAppTest extends TestCase
     private function registerStoredUser(): void
     {
         $register = new RegisterUser($this->users, $this->emails, new PhpUuidGenerator());
-        $register->execute('Ana Pérez', 'ana@example.com', 'secret123');
+        $register->execute('Juan Carlos García López', 'juan.garcia@example.com', 'Juan2026#01');
     }
 
     private function app(): WebApp

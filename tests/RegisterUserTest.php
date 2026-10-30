@@ -41,46 +41,46 @@ final class RegisterUserTest extends TestCase
 
     public function testRegistersUserWithHashedPasswordUuidAndSimulatedWelcomeEmail(): void
     {
-        $user = $this->register->execute('Ana Pérez', 'Ana@Example.com', 'secret123');
+        $user = $this->register->execute('Juan Carlos García López', 'Juan.Garcia@Example.com', 'Juan2026#01');
 
-        $this->assertSame('Ana Pérez', $user->name());
-        $this->assertSame('ana@example.com', $user->email());
+        $this->assertSame('Juan Carlos García López', $user->name());
+        $this->assertSame('juan.garcia@example.com', $user->email());
         $this->assertTrue(Uuid::isValid($user->id()));
-        $this->assertNotNull($this->users->findByEmail('ana@example.com'));
-        $this->assertNotSame('secret123', $user->passwordHash());
-        $this->assertTrue($user->verifyPassword('secret123'));
+        $this->assertNotNull($this->users->findByEmail('juan.garcia@example.com'));
+        $this->assertNotSame('Juan2026#01', $user->passwordHash());
+        $this->assertTrue($user->verifyPassword('Juan2026#01'));
         $this->assertNotFalse(password_get_info($user->passwordHash())['algo']);
 
-        $storedHash = $this->pdo->query("SELECT password_hash FROM users WHERE email = 'ana@example.com'")->fetchColumn();
+        $storedHash = $this->pdo->query("SELECT password_hash FROM users WHERE email = 'juan.garcia@example.com'")->fetchColumn();
         $this->assertIsString($storedHash);
-        $this->assertNotSame('secret123', $storedHash);
-        $this->assertTrue(password_verify('secret123', $storedHash));
-        $this->assertTrue($this->emails->wasRequestedFor('ana@example.com'));
+        $this->assertNotSame('Juan2026#01', $storedHash);
+        $this->assertTrue(password_verify('Juan2026#01', $storedHash));
+        $this->assertTrue($this->emails->wasRequestedFor('juan.garcia@example.com'));
     }
 
     public function testRejectsDuplicateEmailAndDoesNotRequestAnotherSend(): void
     {
-        $this->register->execute('Ana Pérez', 'ana@example.com', 'secret123');
+        $this->register->execute('Juan Carlos García López', 'juan.garcia@example.com', 'Juan2026#01');
 
         $this->expectException(EmailAlreadyRegistered::class);
         $this->expectExceptionMessage('Este correo electrónico ya está registrado.');
-        $this->register->execute('Otra Ana', 'ana@example.com', 'secret123');
+        $this->register->execute('María Elena Ruiz Soto', 'juan.garcia@example.com', 'Juan2026#01');
     }
 
     public function testRejectsDuplicateEmailRegardlessOfLetterCase(): void
     {
-        $this->register->execute('Ana Pérez', 'ana@example.com', 'secret123');
+        $this->register->execute('Juan Carlos García López', 'juan.garcia@example.com', 'Juan2026#01');
 
         $this->expectException(EmailAlreadyRegistered::class);
-        $this->register->execute('Otra Ana', 'ANA@EXAMPLE.COM', 'otraClave9');
+        $this->register->execute('María Elena Ruiz Soto', 'JUAN.GARCIA@EXAMPLE.COM', 'Maria2026#01');
     }
 
     public function testDuplicateEmailDoesNotRequestWelcomeEmailAgain(): void
     {
-        $this->register->execute('Ana Pérez', 'ana@example.com', 'secret123');
+        $this->register->execute('Juan Carlos García López', 'juan.garcia@example.com', 'Juan2026#01');
 
         try {
-            $this->register->execute('Otra Ana', 'ana@example.com', 'secret123');
+            $this->register->execute('María Elena Ruiz Soto', 'juan.garcia@example.com', 'Juan2026#01');
             $this->fail('Debería rechazar el email duplicado');
         } catch (EmailAlreadyRegistered) {
             $this->assertCount(1, $this->emails->requested());
@@ -89,29 +89,29 @@ final class RegisterUserTest extends TestCase
 
     public function testNormalizesEmailWhenSavingAndQuerying(): void
     {
-        $user = $this->register->execute('Luis', '  LUIS@Example.com  ', 'secret123');
+        $user = $this->register->execute('Luis Alberto Fernández Castro', '  LUIS.FERNANDEZ@Example.com  ', 'Juan2026#01');
 
-        $this->assertSame('luis@example.com', $user->email());
-        $this->assertNotNull($this->users->findByEmail('Luis@Example.com'));
-        $this->assertNotNull($this->users->findByEmail('LUIS@EXAMPLE.COM'));
-        $this->assertNotNull($this->users->findByEmail('  luis@example.com  '));
+        $this->assertSame('luis.fernandez@example.com', $user->email());
+        $this->assertNotNull($this->users->findByEmail('Luis.Fernandez@Example.com'));
+        $this->assertNotNull($this->users->findByEmail('LUIS.FERNANDEZ@EXAMPLE.COM'));
+        $this->assertNotNull($this->users->findByEmail('  luis.fernandez@example.com  '));
     }
 
     public function testRejectsInvalidEmailWithoutLeakingPassword(): void
     {
         try {
-            $this->register->execute('Luis', 'no-es-un-email', 'secret123');
+            $this->register->execute('Luis Alberto Fernández Castro', 'no-es-un-email', 'Juan2026#01');
             $this->fail('Debería rechazar un email inválido');
         } catch (InvalidUserData $e) {
             $this->assertSame('El email no es válido.', $e->getMessage());
-            $this->assertStringNotContainsString('secret123', $e->getMessage());
+            $this->assertStringNotContainsString('Juan2026#01', $e->getMessage());
         }
     }
 
     public function testRejectsShortPasswordWithoutLeakingIt(): void
     {
         try {
-            $this->register->execute('Marta', 'marta@example.com', 'corto');
+            $this->register->execute('Marta Isabel Gómez Díaz', 'marta.gomez@example.com', 'corto');
             $this->fail('Debería rechazar una contraseña corta');
         } catch (InvalidUserData $e) {
             $this->assertStringNotContainsString('corto', $e->getMessage());
@@ -127,7 +127,7 @@ final class RegisterUserTest extends TestCase
         $register = new RegisterUser(new PdoUserRepository($pdo), $emails, new PhpUuidGenerator());
 
         try {
-            $register->execute('Nora', 'nora@example.com', 'secret123');
+            $register->execute('Nora Isabel Sánchez Vidal', 'nora.sanchez@example.com', 'Juan2026#01');
             $this->fail('Debería fallar al persistir');
         } catch (UserPersistenceFailed $e) {
             $this->assertSame('No se pudo completar la operación.', $e->getMessage());
@@ -157,16 +157,16 @@ final class RegisterUserTest extends TestCase
         );
         $insert->execute([
             ':id' => Uuid::v4(),
-            ':name' => 'Uno',
-            ':email' => 'unico@example.com',
+            ':name' => 'Pablo Andrés Martín Soto',
+            ':email' => 'miguel.torres@example.com',
             ':password_hash' => 'hash-a',
         ]);
 
         try {
             $insert->execute([
                 ':id' => Uuid::v4(),
-                ':name' => 'Dos',
-                ':email' => 'UNICO@example.com',
+                ':name' => 'Laura Isabel Martín Soto',
+                ':email' => 'MIGUEL.TORRES@example.com',
                 ':password_hash' => 'hash-b',
             ]);
             $this->fail('SQLite UNIQUE debería rechazar el segundo INSERT');
@@ -175,7 +175,7 @@ final class RegisterUserTest extends TestCase
         }
 
         $count = (int) $this->pdo->query(
-            "SELECT COUNT(*) FROM users WHERE email = 'unico@example.com' COLLATE NOCASE"
+            "SELECT COUNT(*) FROM users WHERE email = 'miguel.torres@example.com' COLLATE NOCASE"
         )->fetchColumn();
         $this->assertSame(1, $count);
     }
@@ -195,8 +195,8 @@ final class RegisterUserTest extends TestCase
             'INSERT INTO users (id, name, email, password_hash) VALUES (:id, :name, :email, :password_hash)'
         )->execute([
             ':id' => Uuid::v4(),
-            ':name' => 'Ana',
-            ':email' => 'ana@example.com',
+            ':name' => 'Juan Carlos García López',
+            ':email' => 'juan.garcia@example.com',
             ':password_hash' => 'hash-a',
         ]);
 
@@ -211,8 +211,8 @@ final class RegisterUserTest extends TestCase
         try {
             $second->execute([
                 ':id' => Uuid::v4(),
-                ':name' => 'Otra',
-                ':email' => 'ANA@example.com',
+                ':name' => 'María Elena Ruiz Soto',
+                ':email' => 'JUAN.GARCIA@example.com',
                 ':password_hash' => 'hash-b',
             ]);
             $this->fail('El índice UNIQUE debería aplicarse también a tablas antiguas');
@@ -223,8 +223,8 @@ final class RegisterUserTest extends TestCase
 
     public function testUniqueConstraintRejectsSecondInsertWhenPhpCheckIsSkipped(): void
     {
-        $first = User::register(Uuid::v4(), 'Duplicado', 'unico@example.com', 'secret123');
-        $second = User::register(Uuid::v4(), 'Otro', 'unico@example.com', 'secret123');
+        $first = User::register(Uuid::v4(), 'Miguel Ángel Torres Vega', 'miguel.torres@example.com', 'Juan2026#01');
+        $second = User::register(Uuid::v4(), 'Andrés Felipe Torres Vega', 'miguel.torres@example.com', 'Juan2026#01');
         $this->users->save($first);
 
         $this->expectException(EmailAlreadyRegistered::class);
@@ -243,20 +243,20 @@ final class RegisterUserTest extends TestCase
     {
         $this->expectException(InvalidUserData::class);
         $this->expectExceptionMessage('El identificador de usuario no es un UUID válido.');
-        User::register('12345', 'Pepe', 'pepe@example.com', 'secret123');
+        User::register('12345', 'José Antonio Pérez López', 'jose.perez@example.com', 'Juan2026#01');
     }
 
     public function testUserRowIsPersistedWithUuid(): void
     {
-        $this->register->execute('Ana Pérez', 'ana@example.com', 'secret123');
+        $this->register->execute('Juan Carlos García López', 'juan.garcia@example.com', 'Juan2026#01');
 
         $stored = $this->pdo->prepare('SELECT id, name, email FROM users WHERE email = :email');
-        $stored->execute([':email' => 'ana@example.com']);
+        $stored->execute([':email' => 'juan.garcia@example.com']);
         $row = $stored->fetch(PDO::FETCH_ASSOC);
 
         $this->assertNotFalse($row);
-        $this->assertSame('Ana Pérez', $row['name']);
-        $this->assertSame('ana@example.com', $row['email']);
+        $this->assertSame('Juan Carlos García López', $row['name']);
+        $this->assertSame('juan.garcia@example.com', $row['email']);
         $this->assertSame(36, strlen((string) $row['id']));
         $this->assertTrue(Uuid::isValid((string) $row['id']));
     }
@@ -271,7 +271,7 @@ final class RegisterUserTest extends TestCase
         };
 
         $register = new RegisterUser($this->users, $this->emails, $uuids);
-        $user = $register->execute('Ana Pérez', 'ana@example.com', 'secret123');
+        $user = $register->execute('Juan Carlos García López', 'juan.garcia@example.com', 'Juan2026#01');
 
         $this->assertSame('11111111-1111-4111-8111-111111111111', $user->id());
     }
@@ -298,78 +298,78 @@ final class RegisterUserTest extends TestCase
 
     public function testFakeAdapterDoesNotClaimRealDelivery(): void
     {
-        $this->register->execute('Ana Pérez', 'ana@example.com', 'secret123');
+        $this->register->execute('Juan Carlos García López', 'juan.garcia@example.com', 'Juan2026#01');
         $email = $this->emails->lastEmail();
 
         $this->assertNotNull($email);
-        $this->assertSame('ana@example.com', $email['to']);
+        $this->assertSame('juan.garcia@example.com', $email['to']);
         $this->assertSame('¡Bienvenido a nuestra plataforma!', $email['subject']);
-        $this->assertStringContainsString('Hola, Ana Pérez:', $email['body']);
+        $this->assertStringContainsString('Hola, Juan Carlos García López:', $email['body']);
         $this->assertStringContainsString('Tu registro se ha completado correctamente.', $email['body']);
         $this->assertStringContainsString('no se ha enviado por correo electrónico', $email['disclaimer']);
     }
 
     public function testPreservesAccentsAndPasswordsWithSymbols(): void
     {
-        $jose = $this->register->execute('José María', 'Jose.Maria@Example.com', 'S3gura!#@$');
+        $jose = $this->register->execute('José María Ortega Gil', 'Jose.Ortega@Example.com', 'Jose2026#01');
 
-        $this->assertSame('José María', $jose->name());
-        $this->assertTrue($jose->verifyPassword('S3gura!#@$'));
-        $this->assertNotSame('S3gura!#@$', $jose->passwordHash());
+        $this->assertSame('José María Ortega Gil', $jose->name());
+        $this->assertTrue($jose->verifyPassword('Jose2026#01'));
+        $this->assertNotSame('Jose2026#01', $jose->passwordHash());
 
         $joseRow = $this->pdo->prepare('SELECT name, email FROM users WHERE email = :email');
-        $joseRow->execute([':email' => 'jose.maria@example.com']);
+        $joseRow->execute([':email' => 'jose.ortega@example.com']);
         $joseStored = $joseRow->fetch(PDO::FETCH_ASSOC);
 
         $this->assertNotFalse($joseStored);
-        $this->assertSame('José María', $joseStored['name']);
-        $this->assertSame('jose.maria@example.com', $joseStored['email']);
-        $this->assertNotNull($this->users->findByEmail('Jose.Maria@Example.com'));
-        $this->assertNotNull($this->users->findByEmail('JOSE.MARIA@EXAMPLE.COM'));
-        $this->assertNotNull($this->users->findByEmail('  jose.maria@example.com  '));
+        $this->assertSame('José María Ortega Gil', $joseStored['name']);
+        $this->assertSame('jose.ortega@example.com', $joseStored['email']);
+        $this->assertNotNull($this->users->findByEmail('Jose.Ortega@Example.com'));
+        $this->assertNotNull($this->users->findByEmail('JOSE.ORTEGA@EXAMPLE.COM'));
+        $this->assertNotNull($this->users->findByEmail('  jose.ortega@example.com  '));
     }
 
     public function testErrorsAndFakeAdapterDoNotLeakPasswords(): void
     {
-        $this->register->execute('José María', 'jose.maria@example.com', 'S3gura!#@$');
+        $this->register->execute('José María Ortega Gil', 'jose.ortega@example.com', 'Jose2026#01');
 
         try {
-            $this->register->execute('Otra', 'JOSE.MARIA@EXAMPLE.COM', 'OtraClave!1');
+            $this->register->execute('Elena María Navarro Prieto', 'JOSE.ORTEGA@EXAMPLE.COM', 'Elena2026#01');
             $this->fail('Debería rechazar el duplicado');
         } catch (EmailAlreadyRegistered $e) {
-            $this->assertStringNotContainsString('S3gura!#@$', $e->getMessage());
-            $this->assertStringNotContainsString('OtraClave!1', $e->getMessage());
+            $this->assertStringNotContainsString('Jose2026#01', $e->getMessage());
+            $this->assertStringNotContainsString('Elena2026#01', $e->getMessage());
         }
 
         $secret = 'NoDebeSalir!9';
         try {
-            $this->register->execute('Pepe', 'no-es-un-email', $secret);
+            $this->register->execute('José Antonio Pérez López', 'no-es-un-email', $secret);
             $this->fail('Debería rechazar el email inválido');
         } catch (InvalidUserData $e) {
             $this->assertStringNotContainsString($secret, $e->getMessage());
         }
 
-        $this->assertStringNotContainsString('S3gura!#@$', (string) $this->emails->lastRequestDescription());
+        $this->assertStringNotContainsString('Jose2026#01', (string) $this->emails->lastRequestDescription());
         $this->assertStringNotContainsString($secret, (string) $this->emails->lastRequestDescription());
     }
 
     public function testConcurrentInsertsAreStoppedByUniqueConstraint(): void
     {
-        $a = User::register(Uuid::v4(), 'Uno', 'carrera@example.com', 'S3gura!#@$');
-        $b = User::register(Uuid::v4(), 'Dos', 'carrera@example.com', 'OtraClave!1');
+        $a = User::register(Uuid::v4(), 'Pablo Andrés Martín Soto', 'pablo.martin@example.com', 'Jose2026#01');
+        $b = User::register(Uuid::v4(), 'Laura Isabel Martín Soto', 'pablo.martin@example.com', 'Elena2026#01');
 
-        $this->assertNull($this->users->findByEmail('carrera@example.com'));
+        $this->assertNull($this->users->findByEmail('pablo.martin@example.com'));
         $this->users->save($a);
 
         try {
             $this->users->save($b);
             $this->fail('UNIQUE debería evitar el segundo registro');
         } catch (EmailAlreadyRegistered $e) {
-            $count = (int) $this->pdo->query("SELECT COUNT(*) FROM users WHERE email = 'carrera@example.com'")->fetchColumn();
+            $count = (int) $this->pdo->query("SELECT COUNT(*) FROM users WHERE email = 'pablo.martin@example.com'")->fetchColumn();
             $this->assertSame(1, $count);
             $this->assertSame('Este correo electrónico ya está registrado.', $e->getMessage());
-            $this->assertStringNotContainsString('S3gura!#@$', $e->getMessage());
-            $this->assertStringNotContainsString('OtraClave!1', $e->getMessage());
+            $this->assertStringNotContainsString('Jose2026#01', $e->getMessage());
+            $this->assertStringNotContainsString('Elena2026#01', $e->getMessage());
         }
     }
 
@@ -383,16 +383,16 @@ final class RegisterUserTest extends TestCase
         };
         $register = new RegisterUser($this->users, $mailer, new PhpUuidGenerator());
 
-        $user = $register->execute('Ana', 'ana@example.com', 'secret123');
+        $user = $register->execute('Ana María López García', 'juan.garcia@example.com', 'Juan2026#01');
 
-        $this->assertSame('ana@example.com', $user->email());
-        $this->assertNotNull($this->users->findByEmail('ana@example.com'));
+        $this->assertSame('juan.garcia@example.com', $user->email());
+        $this->assertNotNull($this->users->findByEmail('juan.garcia@example.com'));
     }
 
     public function testUniqueConstraintIsCaseInsensitiveEvenIfDomainIsBypassed(): void
     {
-        $first = User::fromPersistence(Uuid::v4(), 'Uno', 'Race@Example.com', 'hash-a');
-        $second = User::fromPersistence(Uuid::v4(), 'Dos', 'race@example.com', 'hash-b');
+        $first = User::fromPersistence(Uuid::v4(), 'Pablo Andrés Martín Soto', 'Pablo.Martin@Example.com', 'hash-a');
+        $second = User::fromPersistence(Uuid::v4(), 'Laura Isabel Martín Soto', 'pablo.martin@example.com', 'hash-b');
         $this->users->save($first);
 
         $this->expectException(EmailAlreadyRegistered::class);
@@ -402,7 +402,7 @@ final class RegisterUserTest extends TestCase
     public function testPasswordLengthUsesCharactersNotBytes(): void
     {
         $this->expectException(InvalidUserData::class);
-        User::register(Uuid::v4(), 'Pepe', 'pepe@example.com', 'ááááááá');
+        User::register(Uuid::v4(), 'José Antonio Pérez López', 'jose.perez@example.com', 'ááááááá');
     }
 
     public function testUniqueViolationWithGenericDuplicateMessageMapsToEmailAlreadyRegistered(): void
@@ -416,7 +416,7 @@ final class RegisterUserTest extends TestCase
         ));
 
         $repository = new PdoUserRepository($pdo);
-        $user = User::register(Uuid::v4(), 'Ana', 'ana@example.com', 'secret123');
+        $user = User::register(Uuid::v4(), 'Ana María López García', 'juan.garcia@example.com', 'Juan2026#01');
 
         $this->expectException(EmailAlreadyRegistered::class);
         $repository->save($user);
@@ -424,18 +424,18 @@ final class RegisterUserTest extends TestCase
 
     public function testListsRegisteredUsersWithoutPasswordHashes(): void
     {
-        $this->register->execute('Ana Pérez', 'ana@example.com', 'secret123');
+        $this->register->execute('Juan Carlos García López', 'juan.garcia@example.com', 'Juan2026#01');
         $listed = $this->users->all();
 
         $this->assertCount(1, $listed);
-        $this->assertSame('Ana Pérez', $listed[0]->name());
-        $this->assertSame('ana@example.com', $listed[0]->email());
+        $this->assertSame('Juan Carlos García López', $listed[0]->name());
+        $this->assertSame('juan.garcia@example.com', $listed[0]->email());
         $this->assertNotSame('', $listed[0]->id());
 
         $listed = (new ListUsers($this->users))->execute();
         $this->assertSame(['id', 'name', 'email'], array_keys($listed[0]));
-        $this->assertSame('Ana Pérez', $listed[0]['name']);
-        $this->assertSame('ana@example.com', $listed[0]['email']);
+        $this->assertSame('Juan Carlos García López', $listed[0]['name']);
+        $this->assertSame('juan.garcia@example.com', $listed[0]['email']);
 
         $usersView = (string) file_get_contents(dirname(__DIR__) . '/public/views/users.php');
         $this->assertStringNotContainsString('password', $usersView);
@@ -448,22 +448,22 @@ final class RegisterUserTest extends TestCase
 
     public function testResendWelcomeEmailUsesFakeAdapter(): void
     {
-        $user = $this->register->execute('Ana Pérez', 'ana@example.com', 'secret123');
+        $user = $this->register->execute('Juan Carlos García López', 'juan.garcia@example.com', 'Juan2026#01');
         $resend = new ResendWelcomeEmail($this->users, $this->emails);
         $resend->execute($user->id());
 
         $this->assertCount(2, $this->emails->requested());
         $last = $this->emails->lastEmail();
         $this->assertNotNull($last);
-        $this->assertSame('ana@example.com', $last['to']);
+        $this->assertSame('juan.garcia@example.com', $last['to']);
         $this->assertSame('¡Bienvenido a nuestra plataforma!', $last['subject']);
-        $this->assertStringContainsString('Hola, Ana Pérez:', $last['body']);
-        $this->assertStringNotContainsString('secret123', $last['body']);
+        $this->assertStringContainsString('Hola, Juan Carlos García López:', $last['body']);
+        $this->assertStringNotContainsString('Juan2026#01', $last['body']);
     }
 
     public function testResendKeepsUserWhenSendFails(): void
     {
-        $user = $this->register->execute('Ana Pérez', 'ana@example.com', 'secret123');
+        $user = $this->register->execute('Juan Carlos García López', 'juan.garcia@example.com', 'Juan2026#01');
         $mailer = new class implements WelcomeEmailSender {
             public function send(User $user): void
             {
@@ -478,16 +478,16 @@ final class RegisterUserTest extends TestCase
         } catch (WelcomeEmailFailed $e) {
             $this->assertSame('No se pudo simular el correo de bienvenida.', $e->getMessage());
             $this->assertStringNotContainsString('SMTP', $e->getMessage());
-            $this->assertStringNotContainsString('secret123', $e->getMessage());
+            $this->assertStringNotContainsString('Juan2026#01', $e->getMessage());
             $this->assertInstanceOf(\RuntimeException::class, $e->getPrevious());
             $this->assertNotNull($this->users->findById($user->id()));
-            $this->assertSame('ana@example.com', $this->users->findById($user->id())?->email());
+            $this->assertSame('juan.garcia@example.com', $this->users->findById($user->id())?->email());
         }
     }
 
     public function testResendRejectsUnknownUserAndDoesNotSend(): void
     {
-        $this->register->execute('Ana Pérez', 'ana@example.com', 'secret123');
+        $this->register->execute('Juan Carlos García López', 'juan.garcia@example.com', 'Juan2026#01');
         $resend = new ResendWelcomeEmail($this->users, $this->emails);
 
         try {
@@ -500,13 +500,13 @@ final class RegisterUserTest extends TestCase
 
     public function testDeletesUserAndFreesTheEmail(): void
     {
-        $user = $this->register->execute('Ana Pérez', 'ana@example.com', 'secret123');
+        $user = $this->register->execute('Juan Carlos García López', 'juan.garcia@example.com', 'Juan2026#01');
         $delete = new DeleteUser($this->users);
         $delete->execute($user->id());
 
         $this->assertNull($this->users->findById($user->id()));
         $this->assertSame([], $this->users->all());
-        $this->register->execute('Otra Ana', 'ana@example.com', 'secret123');
+        $this->register->execute('María Elena Ruiz Soto', 'juan.garcia@example.com', 'Juan2026#01');
         $this->assertCount(1, $this->users->all());
     }
 
@@ -517,16 +517,16 @@ final class RegisterUserTest extends TestCase
         try {
             $first = PdoUserRepository::fromProjectSqlite($root);
             $register = new RegisterUser($first, new FakeWelcomeEmailSender(), new PhpUuidGenerator());
-            $register->execute('Ana Pérez', 'persistente@example.com', 'secret123');
+            $register->execute('Juan Carlos García López', 'juan.garcia@example.com', 'Juan2026#01');
 
             $second = PdoUserRepository::fromProjectSqlite($root);
-            $found = $second->findByEmail('persistente@example.com');
+            $found = $second->findByEmail('juan.garcia@example.com');
 
             $this->assertNotNull($found);
-            $this->assertSame('Ana Pérez', $found->name());
-            $this->assertSame('persistente@example.com', $found->email());
-            $this->assertTrue($found->verifyPassword('secret123'));
-            $this->assertNotSame('secret123', $found->passwordHash());
+            $this->assertSame('Juan Carlos García López', $found->name());
+            $this->assertSame('juan.garcia@example.com', $found->email());
+            $this->assertTrue($found->verifyPassword('Juan2026#01'));
+            $this->assertNotSame('Juan2026#01', $found->passwordHash());
             $this->assertNotFalse(password_get_info($found->passwordHash())['algo']);
             unset($register, $first, $second, $found);
         } finally {
@@ -541,21 +541,21 @@ final class RegisterUserTest extends TestCase
 
         try {
             $users = PdoUserRepository::fromProjectSqlite($root);
-            $users->save(User::register(Uuid::v4(), 'Uno', 'unico.archivo@example.com', 'secret123'));
+            $users->save(User::register(Uuid::v4(), 'Pablo Andrés Martín Soto', 'pablo.martin@example.com', 'Juan2026#01'));
 
             try {
-                $users->save(User::register(Uuid::v4(), 'Dos', 'UNICO.ARCHIVO@example.com', 'otraClave9'));
+                $users->save(User::register(Uuid::v4(), 'Laura Isabel Martín Soto', 'PABLO.MARTIN@example.com', 'Maria2026#01'));
                 $this->fail('UNIQUE debería evitar el segundo registro');
             } catch (EmailAlreadyRegistered $e) {
                 $this->assertSame('Este correo electrónico ya está registrado.', $e->getMessage());
-                $this->assertStringNotContainsString('secret123', $e->getMessage());
+                $this->assertStringNotContainsString('Juan2026#01', $e->getMessage());
                 $this->assertCount(1, $users->all());
             }
 
             unset($users);
             $reopened = PdoUserRepository::fromProjectSqlite($root);
             $this->assertCount(1, $reopened->all());
-            $this->assertNotNull($reopened->findByEmail('unico.archivo@example.com'));
+            $this->assertNotNull($reopened->findByEmail('pablo.martin@example.com'));
             unset($reopened);
         } finally {
             gc_collect_cycles();

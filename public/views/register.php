@@ -28,14 +28,14 @@
             <input type="hidden" name="action" value="register">
 
             <label for="name">Nombre completo</label>
-            <input id="name" name="name" type="text" required value="<?= e($name) ?>" placeholder="María Julia García López">
+            <input id="name" name="name" type="text" required value="<?= e($name) ?>" placeholder="Juan Carlos García López">
 
             <label for="email">Email</label>
-            <input id="email" name="email" type="email" required value="<?= e($email) ?>" placeholder="maria@example.com" aria-describedby="email-status" autocomplete="email">
+            <input id="email" name="email" type="email" required value="<?= e($email) ?>" placeholder="juan.garcia@example.com" aria-describedby="email-status" autocomplete="email">
             <p id="email-status" class="email-status" role="status" aria-live="polite"></p>
 
             <label for="password">Contraseña</label>
-            <input id="password" name="password" type="password" required minlength="8" placeholder="Mínimo 8 caracteres">
+            <input id="password" name="password" type="password" required minlength="8" placeholder="Juan2026#01">
 
             <button type="submit">Registrarme</button>
         </form>
