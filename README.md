@@ -319,8 +319,6 @@ Mecanismos presentes; no es un endurecimiento de producción (SQLite local, serv
 
 ## Alcance y limitaciones
 
-Decisiones de esta prueba técnica:
-
 - Sin SMTP y sin envío real.
 - SQLite local (archivo o memoria), sin credenciales externas.
 - El fake de correo vive solo en la petición actual; la vista de bienvenida en la web depende del flash de sesión. Si `send` falla en el alta, el usuario queda registrado y se avisa sin preview. Si falla en el reenvío, `WelcomeEmailFailed` y el listado muestra el error; el usuario no cambia.
