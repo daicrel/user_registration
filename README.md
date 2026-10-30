@@ -206,7 +206,7 @@ user_registration/
 └── README.md
 ```
 
-`/data/*.sqlite` y `vendor/` están en `.gitignore`. `data/` se crea al arrancar la web.
+`/data/*.sqlite` y `vendor/` están en `.gitignore`. `data/` se crea al arrancar la web o `demo.php`.
 
 ## Arquitectura y responsabilidades
 
@@ -281,7 +281,7 @@ Otro correo (SMTP u otro) implementaría `WelcomeEmailSender` y se inyectaría e
 | `InMemoryUserRepository` | `UserRepository` | Array cuya clave es el email normalizado. Lo usan los tests de `WebApp`. |
 | `FakeWelcomeEmailSender` | `WelcomeEmailSender` y `WelcomeEmailPreview` | Array privado `$requested`. Sin SMTP, sin archivo, sin tabla. |
 | `PhpUuidGenerator` | `UuidGenerator` | `App\Support\Uuid::v4()` (`random_bytes`). |
-| `WebAppFactory` | — | Cableado de la web. Abre SQLite con `PdoUserRepository::fromProjectSqlite()`. `demo.php` usa `sqlite::memory:`. |
+| `WebAppFactory` | — | Cableado de la web. Abre SQLite con `PdoUserRepository::fromProjectSqlite()`, igual que `demo.php`. Los tests de dominio suelen usar `sqlite::memory:`. |
 
 ### Correo simulado y PRG
 
