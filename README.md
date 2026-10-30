@@ -92,11 +92,13 @@ php demo.php
 
 Menú: registrar, consultar, reenviar correo simulado y eliminar (con confirmación). No muestra contraseñas ni hashes. El correo se presenta con `WelcomeEmailPreview::lastEmail()` y se indica que no hay SMTP.
 
-Registro rápido (sin menú). Argumentos: nombre, email, contraseña:
+Registro rápido (sin menú). Argumentos: **nombre y email**. La contraseña se pide a continuación, oculta en la terminal (no va en el comando ni en el historial):
 
 ```bash
-php demo.php "Ana Pérez" "ana@example.com" "secret123"
+php demo.php "Ana Pérez" "ana@example.com"
 ```
+
+Luego escribe la contraseña. No se imprime ni el hash. `RegisterUser` sigue validando los datos. Si STDIN no es una terminal (tubería), se lee la contraseña de la entrada estándar sin eco extra.
 
 ## Pruebas automatizadas
 

@@ -68,40 +68,82 @@ function leerOculto(string $etiqueta): string
     }
 
     if (PHP_OS_FAMILY === 'Windows') {
-        $comando = 'powershell -NoProfile -Command ' . escapeshellarg(
-            '$p = Read-Host -AsSecureString; $b = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($p); try { [Runtime.InteropServices.Marshal]::PtrToStringAuto($b) } finally { if ($b -ne [IntPtr]::Zero) { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($b) } }'
-        );
-        $salida = @shell_exec($comando);
-        echo "\n";
-        if (!is_string($salida)) {
-            aviso('No se pudo ocultar la contraseña. El texto puede verse al escribirla.');
-
-            return leer('');
-        }
-
-        return rtrim($salida, "\r\n");
+        return leerOcultoWindows();
     }
 
-    $oculto = @shell_exec('stty -echo 2>/dev/null');
-    if ($oculto === null) {
-        aviso('No se pudo ocultar la contraseña en esta terminal. El texto puede verse al escribirla.');
-        $linea = fgets(STDIN);
-        echo "\n";
-        if ($linea === false) {
-            exit(0);
-        }
+    return leerOcultoUnix();
+}
 
-        return trim($linea);
-    }
-
+function leerLineaStdin(): string
+{
     $linea = fgets(STDIN);
-    @shell_exec('stty echo 2>/dev/null');
-    echo "\n";
     if ($linea === false) {
+        echo "\n";
         exit(0);
     }
 
     return trim($linea);
+}
+
+function leerOcultoWindows(): string
+{
+    $script = '$p = Read-Host -AsSecureString; $b = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($p); try { [Runtime.InteropServices.Marshal]::PtrToStringAuto($b) } finally { if ($b -ne [IntPtr]::Zero) { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($b) } }';
+    $salida = [];
+    $codigo = 1;
+    exec('powershell -NoProfile -Command ' . escapeshellarg($script), $salida, $codigo);
+    echo "\n";
+    if ($codigo !== 0) {
+        aviso('No se pudo ocultar la contraseña. El texto puede verse al escribirla.');
+
+        return leerLineaStdin();
+    }
+
+    return rtrim(implode("\n", $salida), "\r\n");
+}
+
+function leerOcultoUnix(): string
+{
+    $estado = [];
+    $codigoEstado = 1;
+    exec('stty -g 2>/dev/null', $estado, $codigoEstado);
+    $restaurar = static function () use ($estado, $codigoEstado): int {
+        $codigoEco = 1;
+        if ($codigoEstado === 0 && isset($estado[0]) && $estado[0] !== '') {
+            exec('stty ' . escapeshellarg($estado[0]) . ' 2>/dev/null', $salida, $codigoEco);
+        } else {
+            exec('stty echo 2>/dev/null', $salida, $codigoEco);
+        }
+
+        return $codigoEco;
+    };
+
+    $codigoOcultar = 1;
+    exec('stty -echo 2>/dev/null', $ignorar, $codigoOcultar);
+    if ($codigoOcultar !== 0) {
+        aviso('No se pudo ocultar la contraseña en esta terminal. El texto puede verse al escribirla.');
+
+        return leerLineaStdin();
+    }
+
+    $restaurado = false;
+    $cerrar = static function () use (&$restaurado, $restaurar): void {
+        if ($restaurado) {
+            return;
+        }
+        $restaurado = true;
+        $codigoEco = $restaurar();
+        echo "\n";
+        if ($codigoEco !== 0) {
+            aviso('No se pudo restaurar el eco del teclado. Ejecuta: stty echo');
+        }
+    };
+    register_shutdown_function($cerrar);
+
+    try {
+        return leerLineaStdin();
+    } finally {
+        $cerrar();
+    }
 }
 
 function pausar(): void
@@ -305,8 +347,22 @@ function registrarUsuario(
     }
 }
 
-if ($argc >= 4) {
-    registrarUsuario($register, $emails, $argv[1], $argv[2], $argv[3]);
+if ($argc >= 3) {
+    $nombre = $argv[1];
+    $emailArg = $argv[2];
+    try {
+        $normalizado = Email::parse($emailArg);
+        if ($users->findByEmail($normalizado) !== null) {
+            error((new EmailAlreadyRegistered($normalizado))->getMessage());
+            exit(1);
+        }
+    } catch (InvalidUserData | UserPersistenceFailed $e) {
+        error($e->getMessage());
+        exit(1);
+    }
+
+    $password = leerOculto('Contraseña: ');
+    registrarUsuario($register, $emails, $nombre, $emailArg, $password);
     exit(0);
 }
 
