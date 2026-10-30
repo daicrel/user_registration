@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure;
 
+use App\Application\CheckEmailAvailability;
 use App\Application\DeleteUser;
 use App\Application\ListUsers;
 use App\Application\RegisterUser;
@@ -26,6 +27,7 @@ final class WebAppFactory
             new ResendWelcomeEmail($users, $emails),
             new DeleteUser($users),
             new ListUsers($users),
+            new CheckEmailAvailability($users),
             $emails,
             new SessionFlash(),
             new View($projectRoot . '/public/views'),

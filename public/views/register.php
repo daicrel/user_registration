@@ -31,7 +31,8 @@
             <input id="name" name="name" type="text" required value="<?= e($name) ?>" placeholder="José María">
 
             <label for="email">Email</label>
-            <input id="email" name="email" type="email" required value="<?= e($email) ?>" placeholder="jose@example.com">
+            <input id="email" name="email" type="email" required value="<?= e($email) ?>" placeholder="jose@example.com" aria-describedby="email-status" autocomplete="email">
+            <p id="email-status" class="email-status" role="status" aria-live="polite"></p>
 
             <label for="password">Contraseña</label>
             <input id="password" name="password" type="password" required minlength="8" placeholder="Mínimo 8 caracteres">

@@ -11,6 +11,7 @@ El diseño demuestra modularidad, separación de responsabilidades e inversión 
 - Registrar usuarios (nombre, email y contraseña).
 - Rechazar email inválido, nombre vacío y contraseña de menos de 8 caracteres (`mb_strlen`).
 - Impedir emails duplicados, también si solo cambia el uso de mayúsculas.
+- Comprobar el email en el formulario (GET `/?action=check-email`) tras 500 ms sin teclear; el POST y el UNIQUE de SQLite siguen siendo la garantía.
 - Listar usuarios (id, nombre y email; nunca contraseña ni hash).
 - Simular el correo de bienvenida tras un alta.
 - Volver a solicitar esa simulación para un usuario existente.
@@ -76,7 +77,7 @@ SQLite persistente: `data/users.sqlite` (web y `demo.php`). `PdoUserRepository::
 | `WebApp` | Petición, sesión, CSRF, casos de uso, PRG y datos de plantilla. No crea PDO. |
 | `public/views/` | `home.php` incluye `register.php`, `users.php` y `welcome.php`. CSRF en `_csrf.php`. |
 | `public/css/` | Layout, formulario, correo simulado y listado. |
-| `public/js/register.js` | Scroll al correo simulado, foco en errores y botón «Registrando…» al enviar el alta. |
+| `public/js/register.js` | Scroll al correo simulado, foco en errores, disponibilidad del email (500 ms) y botón «Registrando…» al enviar el alta. |
 
 Tras un POST **correcto** de alta o reenvío, `WebApp` copia `lastEmail()` a la sesión y redirige. La GET siguiente pinta el correo desde ese flash. Si el reenvío lanza `WelcomeEmailFailed`, no hay redirección ni preview: el listado muestra *No se pudo simular el correo de bienvenida.*
 
@@ -110,7 +111,7 @@ php vendor/bin/phpunit
 
 `phpunit.xml.dist` arranca `vendor/autoload.php` y ejecuta `tests/`.
 
-Ejecución verificada: PHPUnit 10.5.62, **44 tests, 212 assertions**, código de salida 0.
+Ejecución verificada: PHPUnit 10.5.62, **48 tests, 223 assertions**, código de salida 0.
 
 | Qué | Dónde |
 | --- | --- |
@@ -125,6 +126,7 @@ Ejecución verificada: PHPUnit 10.5.62, **44 tests, 212 assertions**, código de
 | Borrado y liberación del email | `RegisterUserTest`, `WebAppTest` |
 | Listado sin hash | `RegisterUserTest` |
 | POST de registro sin CSRF no crea usuario | `WebAppTest` |
+| GET `check-email` (disponible, ocupado, inválido, error de persistencia) | `WebAppTest` |
 | Escape HTML en el listado | `WebAppTest` |
 | El caso de uso no nombra PDO ni `FakeWelcomeEmailSender` | `RegisterUserTest` (inspección de fuente) |
 
@@ -158,6 +160,7 @@ user_registration/
 │   │   ├── RegisterUser.php
 │   │   ├── ListUsers.php
 │   │   ├── ResendWelcomeEmail.php
+│   │   ├── CheckEmailAvailability.php
 │   │   └── DeleteUser.php
 │   ├── Contracts/
 │   │   ├── UserRepository.php
@@ -201,7 +204,7 @@ user_registration/
 └── README.md
 ```
 
-`/data/*.sqlite` y `vendor/` están en `.gitignore`. `data/` se crea al arrancar la web o la demo CLI.
+`/data/*.sqlite` y `vendor/` están en `.gitignore`. `data/` se crea al arrancar la web.
 
 ## Arquitectura y responsabilidades
 
@@ -229,8 +232,9 @@ Método público en todos: `execute(...)`.
 | `ListUsers` | Arrays con `id`, `name` y `email`. |
 | `ResendWelcomeEmail` | `findById` y `send`. Si `send` lanza, captura el `Throwable` y lanza `WelcomeEmailFailed` (mensaje fijo; el original va en `getPrevious()`). No borra ni altera al usuario. |
 | `DeleteUser` | `findById` y `deleteById`. |
+| `CheckEmailAvailability` | `Email::parse` y `findByEmail`. No da de alta. |
 
-La web y `demo.php` usan los cuatro. La demo no duplica reglas de dominio: solo lee la consola y presenta resultados.
+La web usa los cinco. `demo.php` usa los de menú (alta, listado, reenvío, borrado). La demo no duplica reglas de dominio.
 
 ### HTTP
 
@@ -238,7 +242,7 @@ Coordina transporte. No valida email, no hashea, no habla SQL.
 
 | Tipo | Papel |
 | --- | --- |
-| `WebApp` | GET/POST, CSRF, casos de uso, flash, redirección o `View`. En reenvío, captura `WelcomeEmailFailed` y muestra el error en el listado. |
+| `WebApp` | GET/POST, CSRF, casos de uso, flash, redirección, JSON de `check-email` o `View`. En reenvío, captura `WelcomeEmailFailed` y muestra el error en el listado. |
 | `View` | `extract` + `require` de `public/views/`. |
 | `CsrfToken` | Token en `$_SESSION['_csrf_token']`; `hash_equals`. |
 | `SessionFlash` | `set` / `pull` (un solo uso). Claves: `success`, `welcome_email`, `notice`. |
@@ -250,7 +254,7 @@ Los casos de uso reciben interfaces por constructor.
 
 | Puerto | Firma | Consumidores |
 | --- | --- | --- |
-| `UserRepository` | `save`, `findByEmail`, `findById`, `all`, `deleteById` | Los cuatro casos de uso |
+| `UserRepository` | `save`, `findByEmail`, `findById`, `all`, `deleteById` | Los casos de uso de usuarios |
 | `WelcomeEmailSender` | `send(User $user): void` | `RegisterUser`, `ResendWelcomeEmail` |
 | `WelcomeEmailPreview` | `lastEmail(): ?array` | `WebApp` (no los casos de uso) |
 | `UuidGenerator` | `v4(): string` | `RegisterUser` |
@@ -275,7 +279,7 @@ Otro correo (SMTP u otro) implementaría `WelcomeEmailSender` y se inyectaría e
 | `InMemoryUserRepository` | `UserRepository` | Array cuya clave es el email normalizado. Lo usan los tests de `WebApp`. |
 | `FakeWelcomeEmailSender` | `WelcomeEmailSender` y `WelcomeEmailPreview` | Array privado `$requested`. Sin SMTP, sin archivo, sin tabla. |
 | `PhpUuidGenerator` | `UuidGenerator` | `App\Support\Uuid::v4()` (`random_bytes`). |
-| `WebAppFactory` | — | Cableado de la web. Abre SQLite con `PdoUserRepository::fromProjectSqlite()` (igual que `demo.php`). Los tests de dominio suelen usar `sqlite::memory:`. |
+| `WebAppFactory` | — | Cableado de la web. Abre SQLite con `PdoUserRepository::fromProjectSqlite()`. `demo.php` usa `sqlite::memory:`. |
 
 ### Correo simulado y PRG
 

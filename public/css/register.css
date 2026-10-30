@@ -40,6 +40,26 @@ input {
     font: inherit;
 }
 
+#email {
+    margin-bottom: 6px;
+}
+
+.email-status {
+    min-height: 1.2em;
+    margin: 0 0 14px;
+    font-size: 0.85rem;
+    line-height: 1.3;
+}
+
+.email-status.is-available {
+    color: var(--ok);
+}
+
+.email-status.is-taken,
+.email-status.is-error {
+    color: var(--err);
+}
+
 input:focus {
     outline: 2px solid #93c5fd;
     border-color: var(--accent);
@@ -66,6 +86,11 @@ button {
 .btn:hover,
 button:hover {
     background: var(--accent-hover);
+}
+
+button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
 }
 
 .actions {

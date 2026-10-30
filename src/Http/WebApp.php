@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http;
 
+use App\Application\CheckEmailAvailability;
 use App\Application\DeleteUser;
 use App\Application\ListUsers;
 use App\Application\RegisterUser;
@@ -22,6 +23,7 @@ final class WebApp
         private readonly ResendWelcomeEmail $resendWelcome,
         private readonly DeleteUser $deleteUser,
         private readonly ListUsers $listUsers,
+        private readonly CheckEmailAvailability $checkEmailAvailability,
         private readonly WelcomeEmailPreview $welcomePreview,
         private readonly SessionFlash $flash,
         private readonly View $view,
@@ -38,16 +40,30 @@ final class WebApp
             exit;
         }
 
+        if (isset($result['json'])) {
+            header('Content-Type: application/json; charset=utf-8');
+            header('Cache-Control: no-store');
+            echo json_encode($result['json'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
         $this->view->render('home.php', $result['data']);
     }
 
     /**
-     * @return array{location: string}|array{data: array<string, mixed>}
+     * @return array{location: string}|array{json: array<string, mixed>}|array{data: array<string, mixed>}
      */
     public function handle(): array
     {
         if (session_status() !== PHP_SESSION_ACTIVE) {
             session_start();
+        }
+
+        if (
+            ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET'
+            && (string) ($_GET['action'] ?? '') === 'check-email'
+        ) {
+            return ['json' => $this->emailAvailabilityJson((string) ($_GET['email'] ?? ''))];
         }
 
         $error = null;
@@ -129,5 +145,26 @@ final class WebApp
                 'csrfToken' => $this->csrf->get(),
             ],
         ];
+    }
+
+    /**
+     * @return array{ok: true, available: bool}|array{ok: true}|array{ok: false, error: string}
+     */
+    private function emailAvailabilityJson(string $email): array
+    {
+        try {
+            $available = $this->checkEmailAvailability->execute($email);
+        } catch (UserPersistenceFailed) {
+            return [
+                'ok' => false,
+                'error' => 'No se pudo comprobar el correo electrónico. Inténtalo de nuevo.',
+            ];
+        }
+
+        if ($available === null) {
+            return ['ok' => true];
+        }
+
+        return ['ok' => true, 'available' => $available];
     }
 }

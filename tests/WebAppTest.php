@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace Tests;
 
+use App\Application\CheckEmailAvailability;
 use App\Application\DeleteUser;
 use App\Application\ListUsers;
 use App\Application\RegisterUser;
 use App\Application\ResendWelcomeEmail;
 use App\Contracts\WelcomeEmailPreview;
 use App\Contracts\WelcomeEmailSender;
+use App\Contracts\UserRepository;
 use App\Domain\User;
+use App\Domain\UserPersistenceFailed;
 use App\Http\CsrfToken;
 use App\Http\SessionFlash;
 use App\Http\View;
@@ -274,6 +277,94 @@ final class WebAppTest extends TestCase
         $this->assertSame('Ana Pérez', $this->users->all()[0]->name());
     }
 
+    public function testCheckEmailEndpointReportsAvailableAddress(): void
+    {
+        $_GET['action'] = 'check-email';
+        $_GET['email'] = '  Libre@Example.com  ';
+
+        $result = $this->app()->handle();
+
+        $this->assertSame(['json' => ['ok' => true, 'available' => true]], $result);
+        $this->assertSame([], $this->users->all());
+    }
+
+    public function testCheckEmailEndpointReportsTakenAddressIgnoringCase(): void
+    {
+        $this->registerStoredUser();
+        $_GET['action'] = 'check-email';
+        $_GET['email'] = '  ANA@EXAMPLE.COM  ';
+
+        $result = $this->app()->handle();
+
+        $this->assertSame(['json' => ['ok' => true, 'available' => false]], $result);
+        $this->assertCount(1, $this->users->all());
+    }
+
+    public function testCheckEmailEndpointDoesNotMarkInvalidOrEmptyAsAvailable(): void
+    {
+        $_GET['action'] = 'check-email';
+        $_GET['email'] = 'no-es-un-email';
+        $invalid = $this->app()->handle();
+        $this->assertSame(['json' => ['ok' => true]], $invalid);
+        $this->assertArrayNotHasKey('available', $invalid['json']);
+
+        $_GET['email'] = '';
+        $empty = $this->app()->handle();
+        $this->assertSame(['json' => ['ok' => true]], $empty);
+        $this->assertArrayNotHasKey('available', $empty['json']);
+    }
+
+    public function testCheckEmailEndpointReportsErrorWithoutClaimingAvailable(): void
+    {
+        $failingUsers = new class implements UserRepository {
+            public function save(User $user): void
+            {
+            }
+
+            public function findByEmail(string $email): ?User
+            {
+                throw new UserPersistenceFailed();
+            }
+
+            public function findById(string $id): ?User
+            {
+                return null;
+            }
+
+            public function all(): array
+            {
+                return [];
+            }
+
+            public function deleteById(string $id): void
+            {
+            }
+        };
+
+        $app = new WebApp(
+            new RegisterUser($failingUsers, $this->emails, new PhpUuidGenerator()),
+            new ResendWelcomeEmail($failingUsers, $this->emails),
+            new DeleteUser($failingUsers),
+            new ListUsers($failingUsers),
+            new CheckEmailAvailability($failingUsers),
+            $this->emails,
+            new SessionFlash(),
+            new View(dirname(__DIR__) . '/public/views'),
+            new CsrfToken()
+        );
+
+        $_GET['action'] = 'check-email';
+        $_GET['email'] = 'ana@example.com';
+        $result = $app->handle();
+
+        $this->assertFalse($result['json']['ok']);
+        $this->assertArrayNotHasKey('available', $result['json']);
+        $this->assertSame(
+            'No se pudo comprobar el correo electrónico. Inténtalo de nuevo.',
+            $result['json']['error']
+        );
+    }
+
     public function testViewsEscapeDynamicHtml(): void
     {
         require_once dirname(__DIR__) . '/src/Http/html.php';
@@ -320,6 +411,7 @@ final class WebAppTest extends TestCase
             new ResendWelcomeEmail($this->users, $emails),
             new DeleteUser($this->users),
             new ListUsers($this->users),
+            new CheckEmailAvailability($this->users),
             $emails,
             new SessionFlash(),
             new View(dirname(__DIR__) . '/public/views'),
