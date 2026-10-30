@@ -28,10 +28,10 @@
             <input type="hidden" name="action" value="register">
 
             <label for="name">Nombre completo</label>
-            <input id="name" name="name" type="text" required value="<?= e($name) ?>" placeholder="José María">
+            <input id="name" name="name" type="text" required value="<?= e($name) ?>" placeholder="María Julia García López">
 
             <label for="email">Email</label>
-            <input id="email" name="email" type="email" required value="<?= e($email) ?>" placeholder="jose@example.com" aria-describedby="email-status" autocomplete="email">
+            <input id="email" name="email" type="email" required value="<?= e($email) ?>" placeholder="maria@example.com" aria-describedby="email-status" autocomplete="email">
             <p id="email-status" class="email-status" role="status" aria-live="polite"></p>
 
             <label for="password">Contraseña</label>
